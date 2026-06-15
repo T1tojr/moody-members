@@ -343,11 +343,14 @@
       <div class="setting-row"><div><div class="setting-label">🏁 MOODY ELITE starts at (pts)</div></div><input class="setting-input" type="number" id="cfg-elite" value="1000" min="1"></div>
     </div>
     <div class="card">
-      <div class="card-title">Redemption Costs</div>
-      <div class="setting-row"><div><div class="setting-label">Points for $5 off</div></div><input class="setting-input" type="number" id="cfg-redeem-5" value="100" min="1"></div>
-      <div class="setting-row"><div><div class="setting-label">Points for $15 off</div></div><input class="setting-input" type="number" id="cfg-redeem-15" value="250" min="1"></div>
-      <div class="setting-row"><div><div class="setting-label">Points for $30 credit</div></div><input class="setting-input" type="number" id="cfg-redeem-30" value="500" min="1"></div>
-      <div class="setting-row"><div><div class="setting-label">Points for free oil change</div></div><input class="setting-input" type="number" id="cfg-redeem-oil" value="750" min="1"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div class="card-title" style="margin:0;">Redeemable Rewards</div>
+        <button class="btn btn-primary btn-sm" onclick="openRewardModal()">+ Add Reward</button>
+      </div>
+      <div id="rewards-list"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Admin Credentials</div>
       <div class="setting-row"><div><div class="setting-label">Admin username</div></div><input class="setting-input" type="text" id="cfg-admin-user" placeholder="Moody"></div>
       <div class="setting-row"><div><div class="setting-label">Admin password</div></div><input class="setting-input" type="password" id="cfg-admin-pass" placeholder="••••••••"></div>
     </div>
@@ -537,6 +540,7 @@ async function doAdminLogin() {
   customers = res.members;
   document.getElementById('screen-login').style.display='none';
   document.getElementById('screen-portal').style.display='block';
+  loadRewardsFromDB();
   renderAdmin();
 }
 
@@ -640,7 +644,8 @@ function renderPortalProfile() {
   `;
 }
 
-const rewards = [
+// Rewards — loaded from DB on admin login, defaults used as fallback
+let rewards = [
   {id:'r1',title:'$10 Off Service',cost:50,icon:'💵',minTier:'STOCK'},
   {id:'r2',title:'Free Oil Change',cost:200,icon:'🛢️',minTier:'TUNED'},
   {id:'r3',title:'15% Off Next Visit',cost:150,icon:'🔖',minTier:'STOCK'},
@@ -648,6 +653,99 @@ const rewards = [
   {id:'r5',title:'Moody Merch Drop',cost:300,icon:'👕',minTier:'BUILT'},
   {id:'r6',title:'Free Alignment Check',cost:75,icon:'⚙️',minTier:'STOCK'},
 ];
+
+let editingRewardId = null;   // null = adding new, set = editing existing
+
+// ── Persist rewards to the DB as a special "settings" member record ──
+async function saveRewardsToDB() {
+  const res = await apiCall({ action:'save_rewards', admin_password:'Malik0509', rewards });
+  if(res && res.ok) return true;
+  // fall back silently — rewards still work from memory this session
+  return false;
+}
+
+async function loadRewardsFromDB() {
+  const res = await apiCall({ action:'load_rewards' });
+  if(res && res.rewards && Array.isArray(res.rewards) && res.rewards.length > 0) {
+    rewards = res.rewards;
+  }
+}
+
+function renderRewardsList() {
+  const el = document.getElementById('rewards-list');
+  if(!el) return;
+  if(!rewards.length) {
+    el.innerHTML = '<div style="color:#555;font-size:13px;text-align:center;padding:20px 0;">No rewards yet. Click + Add Reward to create one.</div>';
+    return;
+  }
+  const tierLabels = {STOCK:'Any member',TUNED:'TUNED+',BUILT:'BUILT+',ELITE:'ELITE only'};
+  el.innerHTML = rewards.map(r => `
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #2a2a2a;">
+      <div style="font-size:24px;width:36px;text-align:center;">${r.icon}</div>
+      <div style="flex:1;">
+        <div style="font-size:14px;font-weight:700;color:#fff;">${r.title}</div>
+        <div style="font-size:12px;color:#e05c2a;">${r.cost} pts &nbsp;·&nbsp; <span style="color:#888;">${tierLabels[r.minTier]||r.minTier}</span></div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-outline btn-sm" onclick="openRewardModal('${r.id}')">Edit</button>
+        <button class="btn btn-sm" style="background:#3a1a1a;color:#e05c2a;border:1px solid #5a2a2a;" onclick="deleteReward('${r.id}')">Del</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openRewardModal(id) {
+  editingRewardId = id || null;
+  const modal = document.getElementById('reward-modal');
+  modal.style.display = 'flex';
+  if(id) {
+    const r = rewards.find(x=>x.id===id);
+    document.getElementById('reward-modal-title').textContent = 'Edit Reward';
+    document.getElementById('rwd-icon').value = r.icon;
+    document.getElementById('rwd-title').value = r.title;
+    document.getElementById('rwd-cost').value = r.cost;
+    document.getElementById('rwd-tier').value = r.minTier;
+  } else {
+    document.getElementById('reward-modal-title').textContent = 'Add Reward';
+    document.getElementById('rwd-icon').value = '';
+    document.getElementById('rwd-title').value = '';
+    document.getElementById('rwd-cost').value = '';
+    document.getElementById('rwd-tier').value = 'STOCK';
+  }
+}
+
+function closeRewardModal() {
+  document.getElementById('reward-modal').style.display = 'none';
+  editingRewardId = null;
+}
+
+async function saveRewardModal() {
+  const icon  = document.getElementById('rwd-icon').value.trim() || '🎁';
+  const title = document.getElementById('rwd-title').value.trim();
+  const cost  = parseInt(document.getElementById('rwd-cost').value)||0;
+  const tier  = document.getElementById('rwd-tier').value;
+  if(!title) { toast('Enter a reward name'); return; }
+  if(!cost)  { toast('Enter a point cost');  return; }
+
+  if(editingRewardId) {
+    const idx = rewards.findIndex(x=>x.id===editingRewardId);
+    if(idx>=0) rewards[idx] = { id:editingRewardId, icon, title, cost, minTier:tier };
+  } else {
+    rewards.push({ id:'r'+Date.now(), icon, title, cost, minTier:tier });
+  }
+  closeRewardModal();
+  await saveRewardsToDB();
+  renderRewardsList();
+  toast(editingRewardId ? '✅ Reward updated' : '✅ Reward added');
+}
+
+async function deleteReward(id) {
+  if(!confirm('Delete this reward? Members will no longer see it.')) return;
+  rewards = rewards.filter(x=>x.id!==id);
+  await saveRewardsToDB();
+  renderRewardsList();
+  toast('🗑️ Reward deleted');
+}
 
 function renderPortalRedeem() {
   const c = currentUser;
@@ -860,8 +958,7 @@ async function deleteMember(id) {
 }
 
 function renderAdminSettings() {
-  // Settings form is already in the static HTML — just pre-fill any saved values
-  // (values default to what's in the HTML, nothing to do dynamically for now)
+  renderRewardsList();
 }
 
 function saveSettings() {
@@ -883,5 +980,39 @@ function adminLogout() {
   document.getElementById('admin-password').value='';
 }
 </script>
+
+  <!-- ══════════════════════════════════════
+       REWARD EDIT MODAL
+  ══════════════════════════════════════ -->
+  <div id="reward-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;">
+    <div style="background:#1a1a1a;border:1px solid #333;border-radius:14px;padding:28px;width:100%;max-width:420px;box-shadow:0 8px 40px #000;">
+      <div style="font-size:18px;font-weight:700;color:#fff;margin-bottom:20px;" id="reward-modal-title">Add Reward</div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12px;color:#888;display:block;margin-bottom:6px;">Emoji Icon</label>
+        <input id="rwd-icon" class="setting-input" type="text" placeholder="💵" maxlength="4" style="width:70px;">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12px;color:#888;display:block;margin-bottom:6px;">Reward Name</label>
+        <input id="rwd-title" class="setting-input" type="text" placeholder="$10 Off Service" style="width:100%;">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12px;color:#888;display:block;margin-bottom:6px;">Points Cost</label>
+        <input id="rwd-cost" class="setting-input" type="number" placeholder="50" min="1" style="width:100%;">
+      </div>
+      <div style="margin-bottom:20px;">
+        <label style="font-size:12px;color:#888;display:block;margin-bottom:6px;">Minimum Tier Required</label>
+        <select id="rwd-tier" class="setting-input" style="width:100%;">
+          <option value="STOCK">🔧 STOCK (any member)</option>
+          <option value="TUNED">⚙️ TUNED</option>
+          <option value="BUILT">🚀 BUILT</option>
+          <option value="ELITE">🏁 MOODY ELITE</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" style="flex:1;" onclick="saveRewardModal()">Save</button>
+        <button class="btn btn-outline" style="flex:1;" onclick="closeRewardModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
