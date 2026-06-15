@@ -593,7 +593,7 @@ function renderPortalProfile() {
     <div class="portal-hero-ptslabel">TOTAL POINTS</div>
     <div class="portal-tier-row">
       <span class="tier-badge tier-${key}" style="margin-bottom:0;font-size:16px;">${getTierEmoji(key)} ${getTierName(c.points)}</span>
-      ${next ? `<span style="font-size:13px;color:#888;">${next.threshold-c.points} pts until ${next.emoji} ${next.name}</span>` : '<span style="font-size:13px;color:#e05c2a;">🏁 You've reached the top tier!</span>'}
+      ${next ? `<span style="font-size:13px;color:#888;">${next.threshold-c.points} pts until ${next.emoji} ${next.name}</span>` : '<span style="font-size:13px;color:#e05c2a;">🏁 You&#39;ve reached the top tier!</span>'}
     </div>
     <div class="tier-road" id="tier-road">${roadHTML}</div>
     ${next?`<div class="progress-wrap"><div class="progress-bar" style="width:${pct}%"></div></div><div class="progress-label">${pct}% to ${next.name}</div>`:'<div style="font-size:13px;color:#e05c2a;margin-top:8px;">🏁 Max tier unlocked!</div>'}
