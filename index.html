@@ -543,29 +543,50 @@ async function doAdminLogin() {
 function showPortal() {
   document.getElementById('screen-login').style.display='none';
   document.getElementById('screen-portal').style.display='block';
+  // Show member nav, hide admin nav
+  document.getElementById('admin-tabs').style.display='none';
+  document.getElementById('portal-tabs').style.display='flex';
+  // Hide all admin views
+  document.querySelectorAll('.view').forEach(v => v.style.display='none');
+  // Show member profile view
+  document.getElementById('view-my-profile').style.display='block';
   renderPortalProfile();
-  showPortalTab('profile');
 }
 
 function logout() {
   currentUser=null;
   document.getElementById('screen-portal').style.display='none';
   document.getElementById('screen-login').style.display='flex';
+  // Reset nav tabs back to default state
+  document.getElementById('admin-tabs').style.display='flex';
+  document.getElementById('portal-tabs').style.display='none';
   document.getElementById('login-username').value='';
   document.getElementById('login-password').value='';
+  switchAuth('login');
 }
 
 // ════════════════════════════════════════════════
 // MEMBER PORTAL
 // ════════════════════════════════════════════════
 function showPortalTab(tab) {
-  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.portal-view').forEach(v=>v.style.display='none');
-  document.getElementById('portal-'+tab).style.display='block';
-  document.querySelector(`[onclick="showPortalTab('${tab}')"]`)?.classList.add('active');
-  if(tab==='profile') renderPortalProfile();
-  if(tab==='redeem') renderPortalRedeem();
-  if(tab==='history') renderPortalHistory();
+  showPortalView(tab);
+}
+
+function showPortalView(tab) {
+  // Hide all views
+  document.querySelectorAll('.view').forEach(v=>v.style.display='none');
+  // Show the target view — IDs are view-my-profile, view-my-history, view-my-redeem
+  const viewId = 'view-my-' + tab.replace('my-','');
+  const el = document.getElementById(viewId);
+  if(el) el.style.display='block';
+  // Update active tab button
+  document.querySelectorAll('#portal-tabs .nav-tab').forEach(t=>t.classList.remove('active'));
+  const btn = document.querySelector(`#portal-tabs button[onclick="showPortalView('${tab}')"]`);
+  if(btn) btn.classList.add('active');
+  // Render content
+  if(tab==='my-profile' || tab==='profile') renderPortalProfile();
+  if(tab==='my-redeem' || tab==='redeem') renderPortalRedeem();
+  if(tab==='my-history' || tab==='history') renderPortalHistory();
 }
 
 function renderPortalProfile() {
@@ -704,6 +725,9 @@ function showAdminTab(tab) {
 }
 
 function renderAdmin() {
+  // Ensure admin nav is shown, member nav hidden
+  document.getElementById('admin-tabs').style.display='flex';
+  document.getElementById('portal-tabs').style.display='none';
   renderAdminOverview();
   showAdminTab('overview');
 }
