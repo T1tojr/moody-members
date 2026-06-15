@@ -433,14 +433,27 @@ async function apiCall(payload) {
   return res.json();
 }
 
-// ── CONFIG (local only, not in DB) ──
+// ── CONFIG — persisted to cloud DB ──
 const config = {
-  tuned: parseInt(localStorage.getItem('cfg-tuned') || '200'),
-  built: parseInt(localStorage.getItem('cfg-built') || '500'),
-  elite: parseInt(localStorage.getItem('cfg-elite') || '1000'),
-  dollarPerPoint: parseFloat(localStorage.getItem('cfg-dpp') || '0.5'),
-  referralBonus: parseInt(localStorage.getItem('cfg-ref') || '3'),
+  tuned: 200,
+  built: 500,
+  elite: 1000,
+  dollarPerPoint: 0.5,
+  referralBonus: 3,
+  spendPts: 2,
+  reviewPts: 5,
 };
+
+async function loadConfigFromDB() {
+  const res = await apiCall({ action: 'load_config' });
+  if (res && res.config) {
+    Object.assign(config, res.config);
+  }
+}
+
+async function saveConfigToDB() {
+  return apiCall({ action: 'save_config', admin_password: 'Malik0509', config });
+}
 
 // ── STATE ──
 let currentUser = null; // logged-in member object
@@ -541,6 +554,7 @@ async function doAdminLogin() {
   document.getElementById('screen-login').style.display='none';
   document.getElementById('screen-portal').style.display='block';
   loadRewardsFromDB();
+  loadConfigFromDB();
   renderAdmin();
 }
 
@@ -958,19 +972,35 @@ async function deleteMember(id) {
 }
 
 function renderAdminSettings() {
+  // Pre-fill all fields from live config
+  const set = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
+  set('cfg-spend-pts', config.spendPts);
+  set('cfg-ref-pts',   config.referralBonus);
+  set('cfg-review-pts',config.reviewPts);
+  set('cfg-tuned',     config.tuned);
+  set('cfg-built',     config.built);
+  set('cfg-elite',     config.elite);
   renderRewardsList();
 }
 
-function saveSettings() {
-  config.tuned = parseInt(document.getElementById('cfg-tuned').value)||200;
-  config.built = parseInt(document.getElementById('cfg-built').value)||500;
-  config.elite = parseInt(document.getElementById('cfg-elite').value)||1000;
-  config.referralBonus = parseInt(document.getElementById('cfg-ref').value)||3;
-  localStorage.setItem('cfg-tuned', config.tuned);
-  localStorage.setItem('cfg-built', config.built);
-  localStorage.setItem('cfg-elite', config.elite);
-  localStorage.setItem('cfg-ref', config.referralBonus);
-  toast('✅ Settings saved');
+async function saveSettings() {
+  const btn = document.querySelector('[onclick="saveSettings()"]');
+  if(btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+
+  config.spendPts      = parseInt(document.getElementById('cfg-spend-pts').value)  || 2;
+  config.referralBonus = parseInt(document.getElementById('cfg-ref-pts').value)     || 3;
+  config.reviewPts     = parseInt(document.getElementById('cfg-review-pts').value)  || 5;
+  config.tuned         = parseInt(document.getElementById('cfg-tuned').value)       || 200;
+  config.built         = parseInt(document.getElementById('cfg-built').value)       || 500;
+  config.elite         = parseInt(document.getElementById('cfg-elite').value)       || 1000;
+
+  const res = await saveConfigToDB();
+  if(btn) { btn.disabled = false; btn.textContent = 'Save Settings'; }
+  if(res && res.ok) {
+    toast('✅ Settings saved');
+  } else {
+    toast('⚠️ Saved locally — DB write failed');
+  }
 }
 
 function adminLogout() {
