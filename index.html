@@ -486,10 +486,12 @@ function setLoading(btn, loading) {
 // AUTH SCREENS
 // ════════════════════════════════════════════════
 function switchAuth(mode) {
-  document.getElementById('form-login').style.display = mode==='login'?'block':'none';
-  document.getElementById('form-register').style.display = mode==='register'?'block':'none';
+  document.getElementById('auth-login').style.display = mode==='login'?'block':'none';
+  document.getElementById('auth-register').style.display = mode==='register'?'block':'none';
+  document.getElementById('auth-admin').style.display = mode==='admin'?'block':'none';
   document.getElementById('toggle-login-btn').classList.toggle('active', mode==='login');
   document.getElementById('toggle-reg-btn').classList.toggle('active', mode==='register');
+  document.getElementById('toggle-admin-btn').classList.toggle('active', mode==='admin');
 }
 
 async function doLogin() {
