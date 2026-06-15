@@ -653,26 +653,25 @@ function renderPortalRedeem() {
   const c = currentUser;
   const tierOrder = ['STOCK','TUNED','BUILT','ELITE'];
   const userTierIdx = tierOrder.indexOf(getTierKey(c.points));
-  document.getElementById('portal-redeem').innerHTML = `
-    <div class="card">
-      <div class="card-title">Redeem Points</div>
-      <div style="font-size:13px;color:#888;margin-bottom:16px;">You have <strong style="color:#e05c2a;">${c.points} pts</strong> available</div>
-      <div style="font-size:13px;color:#666;margin-bottom:16px;">To redeem, show this screen to a Moody Performance staff member at the shop.</div>
-      <div class="redeem-grid">
-        ${rewards.map(r => {
-          const reqIdx = tierOrder.indexOf(r.minTier);
-          const locked = userTierIdx < reqIdx || c.points < r.cost;
-          return `<div class="redeem-card ${locked?'locked':''}">
-            <div class="redeem-icon">${r.icon}</div>
-            <div class="redeem-title">${r.title}</div>
-            <div class="redeem-cost">${r.cost} pts</div>
-            ${reqIdx>0?`<div class="redeem-avail">Requires ${r.minTier}</div>`:'<div class="redeem-avail">Available now</div>'}
-            ${!locked?`<button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="redeemReward('${r.id}',${r.cost},'${r.title}')">Redeem</button>`:''}
-          </div>`;
-        }).join('')}
-      </div>
-    </div>
-  `;
+
+  // Update the available balance slot in the static HTML
+  const balanceEl = document.getElementById('redeem-balance');
+  if(balanceEl) balanceEl.textContent = (c.points||0).toLocaleString() + ' pts';
+
+  // Populate the rewards grid
+  const gridEl = document.getElementById('redeem-options');
+  if(!gridEl) return;
+  gridEl.innerHTML = rewards.map(r => {
+    const reqIdx = tierOrder.indexOf(r.minTier);
+    const locked = userTierIdx < reqIdx || (c.points||0) < r.cost;
+    return `<div class="redeem-card ${locked?'locked':''}">
+      <div class="redeem-icon">${r.icon}</div>
+      <div class="redeem-title">${r.title}</div>
+      <div class="redeem-cost">${r.cost} pts</div>
+      ${reqIdx>0?`<div class="redeem-avail" style="font-size:11px;color:#888;">Requires ${r.minTier}</div>`:'<div class="redeem-avail" style="font-size:11px;color:#e05c2a;">Available now</div>'}
+      ${!locked?`<button class="btn btn-outline btn-sm" style="margin-top:8px;width:100%;" onclick="redeemReward('${r.id}',${r.cost},'${r.title}')">Redeem</button>`:'<div style="font-size:11px;color:#444;margin-top:8px;">${(c.points||0) < r.cost ? "Need more points" : "Tier locked"}</div>'}
+    </div>`;
+  }).join('');
 }
 
 async function redeemReward(id, cost, title) {
