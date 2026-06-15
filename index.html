@@ -198,8 +198,8 @@
     <!-- LOGIN FORM -->
     <div id="auth-login" style="display:block;">
       <div class="form-group"><label>Username</label><input type="text" id="login-username" placeholder="your username" autocomplete="username"></div>
-      <div class="form-group"><label>Password</label><input type="password" id="login-pass" placeholder="••••••••"></div>
-      <button class="btn btn-primary" style="width:100%;margin-top:4px;" onclick="loginCustomer()">Log In</button>
+      <div class="form-group"><label>Password</label><input type="password" id="login-password" placeholder="••••••••"></div>
+      <button class="btn btn-primary" id="btn-login" style="width:100%;margin-top:4px;" onclick="doLogin()">Log In</button>
       <div id="login-error" style="color:#e05c2a;font-size:13px;margin-top:10px;display:none;"></div>
     </div>
 
@@ -210,17 +210,17 @@
       <div class="form-group"><label>Email (optional)</label><input type="email" id="reg-email" placeholder="your@email.com"></div>
       <div class="form-group"><label>Phone</label><input type="tel" id="reg-phone" placeholder="(909) 555-0000"></div>
       <div class="form-group"><label>Vehicle (Year / Make / Model)</label><input type="text" id="reg-vehicle" placeholder="2020 Honda Civic Si"></div>
-      <div class="form-group"><label>Password</label><input type="password" id="reg-pass" placeholder="Create a password"></div>
-      <div class="form-group"><label>Referred By (optional)</label><input type="text" id="reg-referrer" placeholder="Who referred you?"></div>
-      <button class="btn btn-primary" style="width:100%;margin-top:4px;" onclick="registerCustomer()">Create Account</button>
+      <div class="form-group"><label>Password</label><input type="password" id="reg-password" placeholder="Create a password"></div>
+      <div class="form-group"><label>Referral Code (optional)</label><input type="text" id="reg-referral" placeholder="Enter referral code"></div>
+      <button class="btn btn-primary" id="btn-register" style="width:100%;margin-top:4px;" onclick="doRegister()">Create Account</button>
       <div id="reg-error" style="color:#e05c2a;font-size:13px;margin-top:10px;display:none;"></div>
     </div>
 
     <!-- ADMIN LOGIN -->
     <div id="auth-admin" style="display:none;">
       <div style="font-size:13px;color:#666;margin-bottom:20px;">Staff access only. Enter the shop admin password to continue.</div>
-      <div class="form-group"><label>Admin Password</label><input type="password" id="admin-pass" placeholder="••••••••"></div>
-      <button class="btn btn-primary" style="width:100%;margin-top:4px;" onclick="loginAdmin()">Enter Shop Dashboard</button>
+      <div class="form-group"><label>Admin Password</label><input type="password" id="admin-password" placeholder="••••••••"></div>
+      <button class="btn btn-primary" style="width:100%;margin-top:4px;" id="btn-admin-login" onclick="doAdminLogin()">Enter Shop Dashboard</button>
       <div id="admin-error" style="color:#e05c2a;font-size:13px;margin-top:10px;display:none;"></div>
     </div>
   </div>
@@ -416,45 +416,51 @@
 </div><!-- end screen-app -->
 
 <script>
-// ════════════════════════════════
-// STATE
-// ════════════════════════════════
-let customers = JSON.parse(localStorage.getItem('moody_customers') || '[]');
-let activity  = JSON.parse(localStorage.getItem('moody_activity')  || '[]');
-const _defaults = {
-  spendPts:2, refPts:3, reviewPts:5,
-  tuned:200, built:500, elite:1000,
-  redeem5:100, redeem15:250, redeem30:500, redeemOil:750,
-  adminPass:'Malik0509',
-  adminUser:'Moody'
+// ═══════════════════════════════════════════════
+// CLOUD API — all data lives in the database now
+// ═══════════════════════════════════════════════
+const API = 'https://superagent-df2088bd.base44.app/functions/moodyMembers';
+
+async function apiCall(payload) {
+  const res = await fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  return res.json();
+}
+
+// ── CONFIG (local only, not in DB) ──
+const config = {
+  tuned: parseInt(localStorage.getItem('cfg-tuned') || '200'),
+  built: parseInt(localStorage.getItem('cfg-built') || '500'),
+  elite: parseInt(localStorage.getItem('cfg-elite') || '1000'),
+  dollarPerPoint: parseFloat(localStorage.getItem('cfg-dpp') || '0.5'),
+  referralBonus: parseInt(localStorage.getItem('cfg-ref') || '3'),
 };
-let config = Object.assign({}, _defaults, JSON.parse(localStorage.getItem('moody_config') || '{}'));
-// Always enforce correct admin credentials unless user has explicitly changed them
-if(config.adminPass==='moody2024') config.adminPass='Malik0509';
-save();
 
-let currentUser = null; // { type:'admin' } or { type:'customer', id:'...' }
+// ── STATE ──
+let currentUser = null; // logged-in member object
+let customers = [];     // admin: all members
 
-// ════════════════════════════════
-// TIER HELPERS
-// ════════════════════════════════
+// ── TIER HELPERS ──
 function getTierKey(pts) {
   if(pts>=config.elite) return 'ELITE';
-  if(pts>=config.built) return 'BUILT';
-  if(pts>=config.tuned) return 'TUNED';
+  if(pts>=config.built)  return 'BUILT';
+  if(pts>=config.tuned)  return 'TUNED';
   return 'STOCK';
 }
 function getTierName(pts) {
   return {STOCK:'STOCK',TUNED:'TUNED',BUILT:'BUILT',ELITE:'MOODY ELITE'}[getTierKey(pts)];
 }
-function getTierEmoji(key){return{STOCK:'🔧',TUNED:'⚙️',BUILT:'🚀',ELITE:'🏁'}[key];}
-function nextTierInfo(pts) {
+function getTierEmoji(key) { return{STOCK:'🔧',TUNED:'⚙️',BUILT:'🚀',ELITE:'🏁'}[key]; }
+function getNextTier(pts) {
   if(pts<config.tuned) return {name:'TUNED',threshold:config.tuned,emoji:'⚙️'};
   if(pts<config.built) return {name:'BUILT',threshold:config.built,emoji:'🚀'};
   if(pts<config.elite) return {name:'MOODY ELITE',threshold:config.elite,emoji:'🏁'};
   return null;
 }
-function tierPerks(key){
+function tierPerks(key) {
   return {
     STOCK:['5% off your first service','Access to member-only deals'],
     TUNED:['5% off all services','Priority scheduling','10% off in your birthday month'],
@@ -462,571 +468,393 @@ function tierPerks(key){
     ELITE:['15% off all services','Free oil change once per year','Dedicated service advisor','Wall of Fame + exclusive merch drops']
   }[key]||[];
 }
-function prevTierThreshold(pts){
-  if(pts>=config.elite) return config.elite;
-  if(pts>=config.built) return config.built;
-  if(pts>=config.tuned) return config.tuned;
-  return 0;
-}
 
-// ════════════════════════════════
-// SAVE
-// ════════════════════════════════
-function save(){
-  localStorage.setItem('moody_customers',JSON.stringify(customers));
-  localStorage.setItem('moody_activity',JSON.stringify(activity));
-  localStorage.setItem('moody_config',JSON.stringify(config));
-}
-
-// ════════════════════════════════
-// TOAST
-// ════════════════════════════════
-function toast(msg){
+// ── TOAST ──
+function toast(msg) {
   const t=document.getElementById('toast');
   t.textContent=msg; t.style.display='block';
-  setTimeout(()=>t.style.display='none',2800);
+  setTimeout(()=>t.style.display='none',3000);
 }
 
-// ════════════════════════════════
-// AUTH
-// ════════════════════════════════
-function switchAuth(tab){
-  ['login','register','admin'].forEach(t=>{
-    const el=document.getElementById('auth-'+t);
-    if(el){ el.style.display = (t===tab)?'block':'none'; }
-    const btn=document.getElementById('toggle-'+t+'-btn');
-    if(btn){ btn.classList.toggle('active',t===tab); }
-  });
+// ── LOADING ──
+function setLoading(btn, loading) {
+  if(loading) { btn.disabled=true; btn.dataset.orig=btn.textContent; btn.textContent='Loading...'; }
+  else { btn.disabled=false; btn.textContent=btn.dataset.orig||btn.textContent; }
 }
 
-function loginCustomer(){
-  const username=document.getElementById('login-username').value.trim().toLowerCase();
-  const pass=document.getElementById('login-pass').value;
-  const c=customers.find(x=>(x.username||'').toLowerCase()===username && x.password===pass);
-  const err=document.getElementById('login-error');
-  if(!c){err.textContent='Username or password incorrect.';err.style.display='block';return;}
-  err.style.display='none';
-  currentUser={type:'customer',id:c.id};
-  enterApp();
+// ════════════════════════════════════════════════
+// AUTH SCREENS
+// ════════════════════════════════════════════════
+function switchAuth(mode) {
+  document.getElementById('form-login').style.display = mode==='login'?'block':'none';
+  document.getElementById('form-register').style.display = mode==='register'?'block':'none';
+  document.getElementById('toggle-login-btn').classList.toggle('active', mode==='login');
+  document.getElementById('toggle-reg-btn').classList.toggle('active', mode==='register');
 }
 
-function registerCustomer(){
-  const name=document.getElementById('reg-name').value.trim();
-  const username=document.getElementById('reg-username').value.trim().toLowerCase();
-  const email=document.getElementById('reg-email').value.trim().toLowerCase();
-  const phone=document.getElementById('reg-phone').value.trim();
-  const vehicle=document.getElementById('reg-vehicle').value.trim();
-  const pass=document.getElementById('reg-pass').value;
-  const referrer=document.getElementById('reg-referrer').value.trim();
-  const err=document.getElementById('reg-error');
-  if(!name||!username||!pass){err.textContent='Name, username and password are required.';err.style.display='block';return;}
-  if(customers.find(x=>(x.username||'').toLowerCase()===username)){err.textContent='That username is already taken.';err.style.display='block';return;}
-  const c={id:Date.now().toString(),name,username,email,phone,vehicle,password:pass,
-    points:0,totalSpent:0,referrals:0,visits:0,history:[],joined:new Date().toLocaleDateString()};
-  customers.push(c);
-  if(referrer){
-    const ref=customers.find(x=>x.name.toLowerCase()===referrer.toLowerCase());
-    if(ref){ref.points+=config.refPts;ref.referrals++;logActivity(ref.name,`Referral: ${name} joined`,config.refPts);}
-  }
-  logActivity(name,'Joined loyalty program',0);
-  save();
-  err.style.display='none';
-  currentUser={type:'customer',id:c.id};
-  enterApp();
+async function doLogin() {
+  const btn = document.getElementById('btn-login');
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value.trim();
+  if(!username||!password) { toast('Fill in all fields'); return; }
+  setLoading(btn, true);
+  const res = await apiCall({ action:'login', username, password });
+  setLoading(btn, false);
+  if(res.error) { toast('❌ '+res.error); return; }
+  currentUser = res.member;
+  showPortal();
 }
 
-// ensure correct tab shown on load
-window.addEventListener('DOMContentLoaded', function(){
-  switchAuth('login');
-});
-
-function loginAdmin(){
-  const pass=document.getElementById('admin-pass').value;
-  const err=document.getElementById('admin-error');
-  if(pass!==config.adminPass){err.textContent='Incorrect password.';err.style.display='block';return;}
-  err.style.display='none';
-  currentUser={type:'admin'};
-  enterApp();
+async function doRegister() {
+  const btn = document.getElementById('btn-register');
+  const full_name = document.getElementById('reg-name').value.trim();
+  const username = document.getElementById('reg-username').value.trim();
+  const password = document.getElementById('reg-password').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const phone = document.getElementById('reg-phone').value.trim();
+  const vehicle = document.getElementById('reg-vehicle').value.trim();
+  const referred_by = document.getElementById('reg-referral').value.trim();
+  if(!full_name||!username||!password) { toast('Name, username and password are required'); return; }
+  setLoading(btn, true);
+  const res = await apiCall({ action:'register', full_name, username, password, email, phone, vehicle, referred_by });
+  setLoading(btn, false);
+  if(res.error) { toast('❌ '+res.error); return; }
+  currentUser = res.member;
+  toast('🎉 Welcome to Moody Members!');
+  showPortal();
 }
 
-function logout(){
-  currentUser=null;
-  document.getElementById('screen-app').style.display='none';
-  document.getElementById('screen-login').style.display='flex';
-  ['login-username','login-pass','admin-pass'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';}); 
-  switchAuth('login');
-}
-
-function enterApp(){
+async function doAdminLogin() {
+  const pw = document.getElementById('admin-password').value.trim();
+  if(pw !== 'Malik0509') { toast('❌ Wrong password'); return; }
+  const btn = document.getElementById('btn-admin-login');
+  setLoading(btn, true);
+  const res = await apiCall({ action:'list', admin_password: pw });
+  setLoading(btn, false);
+  if(res.error) { toast('❌ '+res.error); return; }
+  customers = res.members;
   document.getElementById('screen-login').style.display='none';
-  document.getElementById('screen-app').style.display='block';
-  const isAdmin=currentUser.type==='admin';
-  document.getElementById('admin-tabs').style.display   = isAdmin?'flex':'none';
-  document.getElementById('portal-tabs').style.display  = isAdmin?'none':'flex';
-  document.getElementById('nav-username').textContent   = isAdmin?'Admin':customers.find(x=>x.id===currentUser.id)?.name||'';
-
-  if(isAdmin){
-    showView('dashboard');
-  } else {
-    // hide all admin views
-    ['dashboard','customers','customer-detail','add-customer','log-service','settings'].forEach(v=>{
-      const el=document.getElementById('view-'+v); if(el) el.style.display='none';
-    });
-    showPortalView('my-profile');
-  }
+  document.getElementById('screen-admin').style.display='block';
+  renderAdmin();
 }
 
-// ════════════════════════════════
-// ADMIN VIEWS
-// ════════════════════════════════
-function showView(id){
-  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-  document.querySelectorAll('#admin-tabs .nav-tab').forEach(t=>t.classList.remove('active'));
-  const el=document.getElementById('view-'+id);
-  if(el){el.classList.add('active');el.style.display='block';}
-  const map={dashboard:0,customers:1,'log-service':2,settings:3};
-  if(map[id]!==undefined) document.querySelectorAll('#admin-tabs .nav-tab')[map[id]]?.classList.add('active');
-  if(id==='dashboard')   renderDashboard();
-  if(id==='customers')   renderCustomers('');
-  if(id==='log-service') populateCustomerSelect();
-  if(id==='settings')    loadSettings();
-  const d=document.getElementById('svc-date'); if(d)d.value=new Date().toISOString().split('T')[0];
+function showPortal() {
+  document.getElementById('screen-login').style.display='none';
+  document.getElementById('screen-portal').style.display='block';
+  renderPortalProfile();
+  showPortalTab('profile');
 }
 
-// ════════════════════════════════
-// CUSTOMER PORTAL VIEWS
-// ════════════════════════════════
-function showPortalView(id){
-  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-  document.querySelectorAll('#portal-tabs .nav-tab').forEach(t=>t.classList.remove('active'));
-  const el=document.getElementById('view-'+id); if(el){el.classList.add('active');el.style.display='block';}
-  const map={'my-profile':0,'my-history':1,'my-redeem':2};
-  if(map[id]!==undefined) document.querySelectorAll('#portal-tabs .nav-tab')[map[id]]?.classList.add('active');
-  if(id==='my-profile') renderPortalProfile();
-  if(id==='my-history') renderPortalHistory();
-  if(id==='my-redeem')  renderPortalRedeem();
+function logout() {
+  currentUser=null;
+  document.getElementById('screen-portal').style.display='none';
+  document.getElementById('screen-login').style.display='flex';
+  document.getElementById('login-username').value='';
+  document.getElementById('login-password').value='';
 }
 
-// ════════════════════════════════
-// PORTAL: PROFILE
-// ════════════════════════════════
-function renderPortalProfile(){
-  const c=customers.find(x=>x.id===currentUser.id); if(!c) return;
-  const key=getTierKey(c.points);
-  const tierColors={STOCK:'#888',TUNED:'#4caf50',BUILT:'#64b5f6',ELITE:'#e05c2a'};
-  const col=tierColors[key];
-  const next=nextTierInfo(c.points);
-  const prev=prevTierThreshold(c.points);
-  const pct=next ? Math.min(100,Math.round(((c.points-prev)/(next.threshold-prev))*100)) : 100;
+// ════════════════════════════════════════════════
+// MEMBER PORTAL
+// ════════════════════════════════════════════════
+function showPortalTab(tab) {
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.portal-view').forEach(v=>v.style.display='none');
+  document.getElementById('portal-'+tab).style.display='block';
+  document.querySelector(`[onclick="showPortalTab('${tab}')"]`)?.classList.add('active');
+  if(tab==='profile') renderPortalProfile();
+  if(tab==='redeem') renderPortalRedeem();
+  if(tab==='history') renderPortalHistory();
+}
 
-  // HERO
-  document.getElementById('portal-hero').innerHTML=`
-    <div class="portal-hero-name">Welcome back, ${c.name.split(' ')[0]} 👋</div>
+function renderPortalProfile() {
+  const c = currentUser;
+  const key = getTierKey(c.points);
+  const next = getNextTier(c.points);
+  const pct = next ? Math.min(100,Math.round((c.points/next.threshold)*100)) : 100;
+
+  document.getElementById('nav-username').textContent = c.full_name;
+
+  const tiers = ['STOCK','TUNED','BUILT','ELITE'];
+  const roadHTML = tiers.map(t => {
+    const done = tiers.indexOf(t) < tiers.indexOf(key);
+    const curr = t === key;
+    return `<div class="tier-stop ${done?'done':''} ${curr?'curr':''}">
+      <div class="tier-stop-dot"></div>
+      <div class="tier-stop-label">${getTierEmoji(t)} ${t}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('portal-hero').innerHTML = `
+    <div class="portal-hero-name">${c.full_name}</div>
     <div class="portal-hero-vehicle">${c.vehicle||'Moody Performance Member'}</div>
     <div class="portal-hero-pts">${c.points.toLocaleString()}</div>
-    <div class="portal-hero-ptslabel">Available Points</div>
+    <div class="portal-hero-ptslabel">TOTAL POINTS</div>
     <div class="portal-tier-row">
       <span class="tier-badge tier-${key}" style="margin-bottom:0;font-size:16px;">${getTierEmoji(key)} ${getTierName(c.points)}</span>
-      ${next ? `<span style="font-size:13px;color:#888;">${next.threshold-c.points} pts until ${next.emoji} ${next.name}</span>` : '<span style="font-size:13px;color:#e05c2a;">🏁 You\'ve reached the top tier!</span>'}
-    </div>`;
+      ${next ? `<span style="font-size:13px;color:#888;">${next.threshold-c.points} pts until ${next.emoji} ${next.name}</span>` : '<span style="font-size:13px;color:#e05c2a;">🏁 You've reached the top tier!</span>'}
+    </div>
+    <div class="tier-road" id="tier-road">${roadHTML}</div>
+    ${next?`<div class="progress-wrap"><div class="progress-bar" style="width:${pct}%"></div></div><div class="progress-label">${pct}% to ${next.name}</div>`:'<div style="font-size:13px;color:#e05c2a;margin-top:8px;">🏁 Max tier unlocked!</div>'}
+  `;
 
-  // TIER ROAD
-  const tiers=[
-    {key:'STOCK',label:'STOCK',threshold:0,emoji:'🔧'},
-    {key:'TUNED',label:'TUNED',threshold:config.tuned,emoji:'⚙️'},
-    {key:'BUILT',label:'BUILT',threshold:config.built,emoji:'🚀'},
-    {key:'ELITE',label:'ELITE',threshold:config.elite,emoji:'🏁'}
-  ];
-  const currentIdx=tiers.findIndex(t=>t.key===key);
-  document.getElementById('tier-road').innerHTML=tiers.map((t,i)=>{
-    const cls=i<currentIdx?'done':i===currentIdx?'curr':'';
-    return `<div class="tier-stop ${cls}"><div class="tier-stop-dot"></div><div class="tier-stop-label">${t.emoji} ${t.label}</div></div>`;
-  }).join('');
+  const perks = tierPerks(key);
+  document.getElementById('portal-perks').innerHTML = `
+    <div class="card-title">Your ${getTierName(c.points)} Perks</div>
+    <ul class="perks">${perks.map(p=>`<li>${p}</li>`).join('')}</ul>
+  `;
 
-  // PROGRESS BAR
-  document.getElementById('portal-progress-bar').style.width=pct+'%';
-  if(next){
-    document.getElementById('portal-progress-left').textContent=`${c.points} / ${next.threshold} pts`;
-    document.getElementById('portal-progress-pct').textContent=pct+'% to '+next.name;
-  } else {
-    document.getElementById('portal-progress-left').textContent='Max tier achieved';
-    document.getElementById('portal-progress-pct').textContent='🏁 Elite';
-  }
+  document.getElementById('portal-stats').innerHTML = `
+    <div class="card"><div class="card-title">Total Points</div><div class="card-value">${c.points.toLocaleString()}</div><div class="card-sub">Lifetime earned</div></div>
+    <div class="card"><div class="card-title">Total Spent</div><div class="card-value">$${(c.total_spent||0).toLocaleString()}</div><div class="card-sub">At Moody Performance</div></div>
+    <div class="card"><div class="card-title">Visits</div><div class="card-value">${c.visits||0}</div><div class="card-sub">Service appointments</div></div>
+  `;
 
-  // STATS
-  document.getElementById('portal-stats').innerHTML=`
-    <div class="card"><div class="card-title">Total Spent</div><div class="card-value">$${c.totalSpent.toLocaleString()}</div><div class="card-sub">At Moody Performance</div></div>
-    <div class="card"><div class="card-title">Referrals Made</div><div class="card-value">${c.referrals}</div><div class="card-sub">Friends brought in</div></div>
-    <div class="card"><div class="card-title">Shop Visits</div><div class="card-value">${c.visits}</div><div class="card-sub">Services completed</div></div>`;
-
-  // PERKS
-  const perks=tierPerks(key);
-  document.getElementById('portal-perks').innerHTML=`
-    <div class="card-title">${getTierEmoji(key)} Your ${getTierName(c.points)} Perks</div>
-    <ul class="perks" style="margin-top:12px;">${perks.map(p=>`<li>${p}</li>`).join('')}</ul>`;
-
-  // NEXT TIER
-  if(next){
-    const nextPerks=tierPerks(next.key||{TUNED:'TUNED',BUILT:'BUILT','MOODY ELITE':'ELITE'}[next.name]||'ELITE');
-    document.getElementById('portal-next-tier').innerHTML=`
-      <div class="card-title" style="color:#888;">Next Tier — ${next.emoji} ${next.name}</div>
-      <div style="font-size:13px;color:#666;margin-bottom:12px;">Earn ${(next.threshold-c.points).toLocaleString()} more points to unlock:</div>
-      <ul class="perks">${nextPerks.map(p=>`<li style="color:#666;">${p}</li>`).join('')}</ul>`;
-  } else {
-    document.getElementById('portal-next-tier').innerHTML=`
-      <div style="text-align:center;padding:12px;">
-        <div style="font-size:28px;margin-bottom:8px;">🏁</div>
-        <div style="font-weight:700;color:#e05c2a;">You're at the top — MOODY ELITE</div>
-        <div style="font-size:13px;color:#666;margin-top:6px;">Thank you for being a loyal Moody Performance customer.</div>
-      </div>`;
-  }
+  document.getElementById('portal-referral').innerHTML = `
+    <div class="card-title">Your Referral Code</div>
+    <div style="font-size:28px;font-weight:900;letter-spacing:4px;color:#e05c2a;margin:12px 0;">${c.referral_code}</div>
+    <div style="font-size:13px;color:#666;">Share this code with friends. When they sign up, you earn ${config.referralBonus} bonus points!</div>
+    <button class="btn btn-outline btn-sm" style="margin-top:12px;" onclick="navigator.clipboard.writeText('${c.referral_code}').then(()=>toast('✅ Copied!'))">Copy Code</button>
+  `;
 }
 
-// ════════════════════════════════
-// PORTAL: HISTORY
-// ════════════════════════════════
-function renderPortalHistory(){
-  const c=customers.find(x=>x.id===currentUser.id); if(!c) return;
-  const hist=[...(c.history||[])].reverse();
-  document.getElementById('portal-timeline').innerHTML=hist.length?hist.map(h=>`
-    <li>
-      <div class="tl-dot" style="background:${h.points<0?'#888':'#e05c2a'};"></div>
-      <div class="tl-info">
-        <div class="tl-title">${h.type}</div>
-        <div class="tl-date">${h.date}${h.notes?` · ${h.notes}`:''}</div>
-        ${parseFloat(h.amount)>0?`<div style="font-size:13px;color:#888;margin-top:2px;">Amount: $${h.amount}</div>`:''}
+const rewards = [
+  {id:'r1',title:'$10 Off Service',cost:50,icon:'💵',minTier:'STOCK'},
+  {id:'r2',title:'Free Oil Change',cost:200,icon:'🛢️',minTier:'TUNED'},
+  {id:'r3',title:'15% Off Next Visit',cost:150,icon:'🔖',minTier:'STOCK'},
+  {id:'r4',title:'Free Diagnostic Scan',cost:100,icon:'🔍',minTier:'STOCK'},
+  {id:'r5',title:'Moody Merch Drop',cost:300,icon:'👕',minTier:'BUILT'},
+  {id:'r6',title:'Free Alignment Check',cost:75,icon:'⚙️',minTier:'STOCK'},
+];
+
+function renderPortalRedeem() {
+  const c = currentUser;
+  const tierOrder = ['STOCK','TUNED','BUILT','ELITE'];
+  const userTierIdx = tierOrder.indexOf(getTierKey(c.points));
+  document.getElementById('portal-redeem').innerHTML = `
+    <div class="card">
+      <div class="card-title">Redeem Points</div>
+      <div style="font-size:13px;color:#888;margin-bottom:16px;">You have <strong style="color:#e05c2a;">${c.points} pts</strong> available</div>
+      <div style="font-size:13px;color:#666;margin-bottom:16px;">To redeem, show this screen to a Moody Performance staff member at the shop.</div>
+      <div class="redeem-grid">
+        ${rewards.map(r => {
+          const reqIdx = tierOrder.indexOf(r.minTier);
+          const locked = userTierIdx < reqIdx || c.points < r.cost;
+          return `<div class="redeem-card ${locked?'locked':''}">
+            <div class="redeem-icon">${r.icon}</div>
+            <div class="redeem-title">${r.title}</div>
+            <div class="redeem-cost">${r.cost} pts</div>
+            ${reqIdx>0?`<div class="redeem-avail">Requires ${r.minTier}</div>`:'<div class="redeem-avail">Available now</div>'}
+            ${!locked?`<button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="redeemReward('${r.id}',${r.cost},'${r.title}')">Redeem</button>`:''}
+          </div>`;
+        }).join('')}
       </div>
-      <div class="tl-pts" style="color:${h.points<0?'#888':'#e05c2a'}">${h.points<0?'':'+'}${h.points} pts</div>
-    </li>`).join('')
-  :'<li style="color:#555;text-align:center;padding:20px;">No services logged yet.</li>';
+    </div>
+  `;
 }
 
-// ════════════════════════════════
-// PORTAL: REDEEM
-// ════════════════════════════════
-function renderPortalRedeem(){
-  const c=customers.find(x=>x.id===currentUser.id); if(!c) return;
-  document.getElementById('redeem-balance').textContent=c.points.toLocaleString()+' pts';
-  const rewards=[
-    {icon:'🏷️',title:'$5 Off Your Next Service',cost:config.redeem5,id:'r5'},
-    {icon:'💵',title:'$15 Off Your Next Service',cost:config.redeem15,id:'r15'},
-    {icon:'💳',title:'$30 Shop Credit',cost:config.redeem30,id:'r30'},
-    {icon:'🛢️',title:'Free Oil Change',cost:config.redeemOil,id:'roil'},
-  ];
-  document.getElementById('redeem-options').innerHTML=rewards.map(r=>{
-    const canAfford=c.points>=r.cost;
-    return `<div class="redeem-card ${canAfford?'':'locked'}">
-      <div class="redeem-icon">${r.icon}</div>
-      <div class="redeem-title">${r.title}</div>
-      <div class="redeem-cost">${r.cost.toLocaleString()} points</div>
-      ${canAfford
-        ? `<button class="btn btn-outline btn-sm" onclick="redeemReward('${r.id}',${r.cost},'${r.title}')">Redeem</button>`
-        : `<div class="redeem-avail">Need ${(r.cost-c.points).toLocaleString()} more pts</div>`}
-    </div>`;
-  }).join('');
-}
-
-function redeemReward(id,cost,title){
-  const c=customers.find(x=>x.id===currentUser.id); if(!c) return;
-  if(c.points<cost){toast('Not enough points!');return;}
+async function redeemReward(id, cost, title) {
+  const c = currentUser;
+  if(c.points < cost) { toast('Not enough points!'); return; }
   if(!confirm(`Redeem ${cost} points for "${title}"?\n\nShow this to shop staff to complete your redemption.`)) return;
-  c.points-=cost;
-  // push into service history so it shows in My History
-  if(!c.history) c.history=[];
-  c.history.push({
+
+  const newPoints = c.points - cost;
+  const newHistory = [...(c.history||[]), {
     date: new Date().toLocaleDateString(),
     type: '🎁 Redemption: ' + title,
     amount: '0.00',
     points: -cost,
     notes: 'Show to staff at Moody Performance'
-  });
-  logActivity(c.name,`Redeemed: ${title}`,-cost);
-  save();
-  toast(`✅ Redeemed! Show staff your screen.`);
+  }];
+
+  const res = await apiCall({ action:'update', id:c.id, points:newPoints, history:newHistory });
+  if(res.error) { toast('❌ '+res.error); return; }
+  currentUser = res.member;
+  toast('✅ Redeemed! Show staff your screen.');
   renderPortalRedeem();
-  // update hero pts too
-  const heroEl=document.getElementById('portal-hero');
-  if(heroEl) renderPortalProfile();
+  renderPortalProfile();
 }
 
-// ════════════════════════════════
-// ADMIN: DASHBOARD
-// ════════════════════════════════
-function renderDashboard(){
-  document.getElementById('stat-customers').textContent=customers.length;
-  document.getElementById('stat-points').textContent=customers.reduce((s,c)=>s+c.points,0).toLocaleString();
-  document.getElementById('stat-revenue').textContent='$'+customers.reduce((s,c)=>s+c.totalSpent,0).toLocaleString();
-  const tiers={STOCK:0,TUNED:0,BUILT:0,ELITE:0};
-  customers.forEach(c=>tiers[getTierKey(c.points)]++);
-  const colors={STOCK:'#555',TUNED:'#4caf50',BUILT:'#64b5f6',ELITE:'#e05c2a'};
-  const emojis={STOCK:'🔧',TUNED:'⚙️',BUILT:'🚀',ELITE:'🏁'};
-  document.getElementById('tier-breakdown').innerHTML=Object.entries(tiers).map(([k,v])=>
-    `<div style="background:#111;border-radius:8px;padding:14px;border-left:4px solid ${colors[k]}">
-      <div style="font-size:13px;color:#aaa;">${emojis[k]} ${k}</div>
-      <div style="font-size:28px;font-weight:900;color:${colors[k]}">${v}</div>
-      <div style="font-size:12px;color:#666;">customers</div></div>`).join('');
-  const recent=[...activity].reverse().slice(0,8);
-  document.getElementById('recent-activity').innerHTML=recent.length?recent.map(a=>
-    `<tr><td>${a.customerName}</td><td>${a.action}</td>
-     <td style="color:${a.points>=0?'#e05c2a':'#888'};font-weight:700;">${a.points>=0?'+':''}${a.points} pts</td>
-     <td style="color:#666;">${a.date}</td></tr>`).join('')
-  :'<tr><td colspan="4" style="color:#555;text-align:center;padding:20px;">No activity yet</td></tr>';
-}
-
-// ════════════════════════════════
-// ADMIN: CUSTOMERS
-// ════════════════════════════════
-function renderCustomers(filter){
-  const filtered=customers.filter(c=>
-    c.name.toLowerCase().includes(filter.toLowerCase())||
-    (c.email||'').toLowerCase().includes(filter.toLowerCase())
-  );
-  document.getElementById('customer-list').innerHTML=filtered.length?filtered.map(c=>{
-    const key=getTierKey(c.points),next=nextTierInfo(c.points);
-    const prev=prevTierThreshold(c.points);
-    const pct=next?Math.min(100,Math.round(((c.points-prev)/(next.threshold-prev))*100)):100;
-    return `<div class="card" style="cursor:pointer;" onclick="showCustomerDetail('${c.id}')">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-        <div><div style="font-size:17px;font-weight:700;">${c.name}</div>
-        <div style="font-size:13px;color:#888;">${c.email} · ${c.phone}</div>
-        <div style="font-size:13px;color:#666;">${c.vehicle}</div></div>
-        <div style="text-align:right;"><span class="tier-badge tier-${key}">${getTierName(c.points)}</span>
-        <div style="font-size:22px;font-weight:900;color:#e05c2a;">${c.points.toLocaleString()} pts</div></div>
+function renderPortalHistory() {
+  const hist = (currentUser.history||[]).slice().reverse();
+  document.getElementById('portal-timeline').innerHTML = hist.length ? hist.map(h=>`
+    <li>
+      <div class="tl-dot" style="background:${h.points<0?'#888':'#e05c2a'};"></div>
+      <div class="tl-info">
+        <div class="tl-title">${h.type}</div>
+        <div class="tl-date">${h.date}${h.notes?` · ${h.notes}`:''} </div>
+        ${parseFloat(h.amount)>0?`<div style="font-size:13px;color:#888;margin-top:2px;">Amount: $${h.amount}</div>`:''}
       </div>
-      <div class="progress-wrap"><div class="progress-bar" style="width:${pct}%"></div></div>
-      <div class="progress-label">${next?`${c.points}/${next.threshold} pts to ${next.name}`:'🏁 Max tier!'}</div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
-        <div style="display:flex;gap:20px;font-size:13px;color:#888;">
-          <span>💰 $${c.totalSpent.toLocaleString()}</span>
-          <span>👥 ${c.referrals} referrals</span>
-          <span>🔧 ${c.visits} visits</span>
-        </div>
-        <div style="display:flex;gap:8px;" onclick="event.stopPropagation()">
-          <button class="btn btn-sm btn-outline" onclick="adjustPointsPrompt('${c.id}')">✏️ Pts</button>
-          <button class="btn btn-sm" style="background:#3a0a0a;color:#e05c2a;border:1px solid #5a1a1a;" onclick="removeCustomer('${c.id}')">🗑</button>
-        </div>
-      </div></div>`;
-  }).join(''):'<div class="card" style="text-align:center;color:#555;">No customers found.</div>';
+      <div class="tl-pts" style="color:${h.points<0?'#888':'#e05c2a'}">${h.points<0?'':'+'}"${h.points} pts</div>
+    </li>`).join('') : '<li style="color:#555;padding:20px 0;">No service history yet.</li>';
 }
-function filterCustomers(val){renderCustomers(val);}
 
-function showCustomerDetail(id){
-  const c=customers.find(x=>x.id===id); if(!c)return;
-  const key=getTierKey(c.points),next=nextTierInfo(c.points);
-  const prev=prevTierThreshold(c.points);
-  const pct=next?Math.min(100,Math.round(((c.points-prev)/(next.threshold-prev))*100)):100;
-  const hist=(c.history||[]).map((h,i)=>`<tr>
-    <td>${h.date}</td>
-    <td>${h.type}</td>
-    <td>$${h.amount}</td>
-    <td style="color:#e05c2a;font-weight:700;">+${h.points}</td>
-    <td style="color:#888;">${h.notes||''}</td>
-    <td><button class="btn btn-sm" style="background:#3a0a0a;color:#e05c2a;border:1px solid #5a1a1a;padding:4px 10px;font-size:11px;" onclick="removeService('${c.id}',${i})">🗑</button></td>
-  </tr>`).join('')||'<tr><td colspan="6" style="color:#555;text-align:center;">No services yet</td></tr>';
-  document.getElementById('customer-detail-content').innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-      <div><div style="font-size:26px;font-weight:900;">${c.name}</div>
-      <div style="color:#888;font-size:14px;">${c.email} · ${c.phone}</div>
-      <div style="color:#666;font-size:13px;">${c.vehicle}</div></div>
-      <span class="tier-badge tier-${key}" style="font-size:16px;">${getTierName(c.points)}</span>
-    </div>
+// ════════════════════════════════════════════════
+// ADMIN PANEL
+// ════════════════════════════════════════════════
+function showAdminTab(tab) {
+  document.querySelectorAll('.admin-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.admin-view').forEach(v=>v.style.display='none');
+  document.getElementById('admin-'+tab).style.display='block';
+  document.querySelector(`[onclick="showAdminTab('${tab}')"]`)?.classList.add('active');
+  if(tab==='customers') renderAdminCustomers();
+  if(tab==='overview') renderAdminOverview();
+  if(tab==='settings') renderAdminSettings();
+}
+
+function renderAdmin() {
+  renderAdminOverview();
+  showAdminTab('overview');
+}
+
+function renderAdminOverview() {
+  const total = customers.length;
+  const totalPts = customers.reduce((s,c)=>s+(c.points||0),0);
+  const totalSpent = customers.reduce((s,c)=>s+(c.total_spent||0),0);
+  const tierCounts = {STOCK:0,TUNED:0,BUILT:0,ELITE:0};
+  customers.forEach(c=>{ const k=getTierKey(c.points); tierCounts[k]=(tierCounts[k]||0)+1; });
+
+  document.getElementById('admin-overview').innerHTML = `
     <div class="grid-3" style="margin-bottom:20px;">
-      <div class="card"><div class="card-title">Points</div><div class="card-value" style="color:#e05c2a;">${c.points.toLocaleString()}</div></div>
-      <div class="card"><div class="card-title">Total Spent</div><div class="card-value">$${c.totalSpent.toLocaleString()}</div></div>
-      <div class="card"><div class="card-title">Referrals</div><div class="card-value">${c.referrals}</div></div>
+      <div class="card"><div class="card-title">Total Members</div><div class="card-value">${total}</div></div>
+      <div class="card"><div class="card-title">Points Issued</div><div class="card-value">${totalPts.toLocaleString()}</div></div>
+      <div class="card"><div class="card-title">Total Revenue</div><div class="card-value">$${totalSpent.toLocaleString()}</div></div>
     </div>
-    <div class="card" style="margin-bottom:20px;">
-      <div class="card-title">Tier Progress</div>
-      <div class="progress-wrap"><div class="progress-bar" style="width:${pct}%"></div></div>
-      <div class="progress-label">${next?`${c.points}/${next.threshold} pts to ${next.name}`:'🏁 Max tier reached!'}</div>
-      <ul class="perks" style="margin-top:12px;">${tierPerks(key).map(p=>`<li>${p}</li>`).join('')}</ul>
+    <div class="card">
+      <div class="card-title">Tier Breakdown</div>
+      <div class="grid-2" style="margin-top:12px;">
+        ${Object.entries(tierCounts).map(([k,v])=>`
+          <div style="display:flex;align-items:center;gap:10px;padding:10px;background:#111;border-radius:8px;">
+            <span class="tier-badge tier-${k}" style="margin:0;">${getTierEmoji(k)} ${k}</span>
+            <span style="font-size:20px;font-weight:900;">${v}</span>
+            <span style="font-size:12px;color:#555;">members</span>
+          </div>`).join('')}
+      </div>
     </div>
-    <div class="card"><div class="card-title">Service History</div>
-      <table><thead><tr><th>Date</th><th>Service</th><th>Amount</th><th>Pts</th><th>Notes</th><th></th></tr></thead>
-      <tbody>${hist}</tbody></table>
+  `;
+}
+
+let searchTerm='';
+function renderAdminCustomers() {
+  const filtered = customers.filter(c=>
+    c.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (c.username||'').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  document.getElementById('admin-customers').innerHTML = `
+    <div class="flex-between">
+      <div class="section-title">Members (${filtered.length})</div>
+      <input class="search-input" placeholder="Search members..." oninput="searchTerm=this.value;renderAdminCustomers()" value="${searchTerm}" style="max-width:220px;"/>
     </div>
-    <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap;">
-      <button class="btn btn-primary" onclick="awardReferral('${c.id}')">+ Referral Bonus</button>
-      <button class="btn btn-secondary" onclick="awardReview('${c.id}')">+ Google Review</button>
-      <button class="btn btn-outline" onclick="adjustPointsPrompt('${c.id}')">✏️ Adjust Points</button>
-      <button class="btn" style="background:#3a0a0a;color:#e05c2a;border:1px solid #5a1a1a;" onclick="removeCustomer('${c.id}')">🗑 Remove Member</button>
-    </div>`;
-  showView('customer-detail');
+    <div class="card" style="padding:0;overflow:hidden;">
+      <table>
+        <thead><tr>
+          <th>Name</th><th>Username</th><th>Tier</th><th>Points</th><th>Spent</th><th>Visits</th><th>Actions</th>
+        </tr></thead>
+        <tbody>
+          ${filtered.map(c=>`<tr>
+            <td><strong>${c.full_name}</strong></td>
+            <td style="color:#666;">@${c.username}</td>
+            <td><span class="tier-badge tier-${getTierKey(c.points)}" style="margin:0;font-size:12px;">${getTierName(c.points)}</span></td>
+            <td style="color:#e05c2a;font-weight:700;">${c.points}</td>
+            <td>$${(c.total_spent||0).toLocaleString()}</td>
+            <td>${c.visits||0}</td>
+            <td>
+              <button class="btn btn-outline btn-sm" onclick="openLogService('${c.id}')">+ Service</button>
+              <button class="btn btn-sm" style="background:#1a1a1a;color:#aaa;margin-left:4px;" onclick="adjustPoints('${c.id}')">Adjust Pts</button>
+              <button class="btn btn-sm" style="background:#2a1a1a;color:#e05c2a;margin-left:4px;" onclick="deleteMember('${c.id}')">Delete</button>
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
 }
 
-function awardReferral(id){
-  const c=customers.find(x=>x.id===id); if(!c)return;
-  c.points+=config.refPts; c.referrals++;
-  logActivity(c.name,'Referral bonus',config.refPts); save();
-  toast(`+${config.refPts} referral pts → ${c.name}`);
-  showCustomerDetail(id);
-}
-function awardReview(id){
-  const c=customers.find(x=>x.id===id); if(!c)return;
-  c.points+=config.reviewPts;
-  logActivity(c.name,'Google Review bonus',config.reviewPts); save();
-  toast(`+${config.reviewPts} review pts → ${c.name}`);
-  showCustomerDetail(id);
+async function openLogService(id) {
+  const type = prompt('Service type (e.g. Oil Change, Tune, Wrap):');
+  if(!type) return;
+  const amount = prompt('Service amount ($):');
+  if(!amount) return;
+  const notes = prompt('Notes (optional):') || '';
+
+  const res = await apiCall({ action:'log_service', admin_password:'Malik0509', id, service:{ type, amount, notes } });
+  if(res.error) { toast('❌ '+res.error); return; }
+
+  // Update local customers array
+  const idx = customers.findIndex(c=>c.id===id);
+  if(idx>=0) customers[idx] = res.member;
+  toast(`✅ Service logged! +${Math.floor(parseFloat(amount)*2)} pts`);
+  renderAdminCustomers();
 }
 
-// ════════════════════════════════
-// ADMIN: ADD CUSTOMER
-// ════════════════════════════════
-function addCustomer(){
-  const name=document.getElementById('new-name').value.trim();
-  const username=document.getElementById('new-username').value.trim().toLowerCase();
-  const email=document.getElementById('new-email').value.trim().toLowerCase();
-  const phone=document.getElementById('new-phone').value.trim();
-  const vehicle=document.getElementById('new-vehicle').value.trim();
-  const pass=document.getElementById('new-pass').value;
-  const referrer=document.getElementById('new-referrer').value.trim();
-  if(!name){toast('Name is required!');return;}
-  if(username && customers.find(x=>(x.username||'').toLowerCase()===username)){toast('Username already taken!');return;}
-  const c={id:Date.now().toString(),name,username,email,phone,vehicle,password:pass,
-    points:0,totalSpent:0,referrals:0,visits:0,history:[],joined:new Date().toLocaleDateString()};
-  customers.push(c);
-  if(referrer){
-    const ref=customers.find(x=>x.name.toLowerCase()===referrer.toLowerCase());
-    if(ref){ref.points+=config.refPts;ref.referrals++;logActivity(ref.name,`Referral: ${name} joined`,config.refPts);}
-  }
-  logActivity(name,'Joined loyalty program',0); save();
-  toast(`${name} added!`);
-  ['new-name','new-username','new-email','new-phone','new-vehicle','new-pass','new-referrer'].forEach(id=>document.getElementById(id).value='');
-  showView('customers');
+async function adjustPoints(id) {
+  const delta = parseInt(prompt('Enter points to add (or negative to subtract):'));
+  if(isNaN(delta)) return;
+  const member = customers.find(c=>c.id===id);
+  if(!member) return;
+  const newPoints = Math.max(0, (member.points||0)+delta);
+  const res = await apiCall({ action:'update', id, points:newPoints, admin_password:'Malik0509' });
+  if(res.error) { toast('❌ '+res.error); return; }
+  const idx = customers.findIndex(c=>c.id===id);
+  if(idx>=0) customers[idx] = res.member;
+  toast(`✅ Points adjusted`);
+  renderAdminCustomers();
 }
 
-// ════════════════════════════════
-// ADMIN: LOG SERVICE
-// ════════════════════════════════
-function populateCustomerSelect(){
-  const sel=document.getElementById('svc-customer');
-  sel.innerHTML='<option value="">-- Select Customer --</option>'+customers.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
-  sel.onchange=updateSvcPreview;
-  document.getElementById('svc-amount').oninput=updateSvcPreview;
-}
-function updateSvcPreview(){
-  const id=document.getElementById('svc-customer').value;
-  const amt=parseFloat(document.getElementById('svc-amount').value)||0;
-  const c=customers.find(x=>x.id===id),pts=Math.floor(amt*config.spendPts);
-  const el=document.getElementById('svc-preview');
-  if(c&&amt>0){
-    const newPts=c.points+pts;
-    el.innerHTML=`<strong style="color:#e05c2a;">${c.name}</strong> earns <strong style="color:#e05c2a;">+${pts} pts</strong> for $${amt.toFixed(2)}<br>New total: <strong>${newPts.toLocaleString()} pts</strong> → <strong>${getTierName(newPts)}</strong>`;
-  } else el.textContent='Select a customer and amount to preview points.';
-}
-function logService(){
-  const id=document.getElementById('svc-customer').value;
-  const type=document.getElementById('svc-type').value;
-  const amt=parseFloat(document.getElementById('svc-amount').value);
-  const notes=document.getElementById('svc-notes').value.trim();
-  const date=document.getElementById('svc-date').value;
-  const c=customers.find(x=>x.id===id);
-  if(!c){toast('Select a customer!');return;}
-  if(!amt||amt<=0){toast('Enter a valid amount!');return;}
-  const pts=Math.floor(amt*config.spendPts);
-  c.points+=pts; c.totalSpent+=amt; c.visits++;
-  c.history.push({date,type,amount:amt.toFixed(2),points:pts,notes});
-  logActivity(c.name,type,pts); save();
-  toast(`✅ ${c.name} earned +${pts} pts!`);
-  document.getElementById('svc-customer').value='';
-  document.getElementById('svc-amount').value='';
-  document.getElementById('svc-notes').value='';
-  document.getElementById('svc-preview').textContent='Select a customer and amount to preview points.';
+async function deleteMember(id) {
+  if(!confirm('Delete this member? This cannot be undone.')) return;
+  const res = await apiCall({ action:'delete', admin_password:'Malik0509', id });
+  if(res.error) { toast('❌ '+res.error); return; }
+  customers = customers.filter(c=>c.id!==id);
+  toast('🗑 Member deleted');
+  renderAdminCustomers();
 }
 
-// ════════════════════════════════
-// ADMIN: SETTINGS
-// ════════════════════════════════
-function loadSettings(){
-  document.getElementById('cfg-spend-pts').value=config.spendPts;
-  document.getElementById('cfg-ref-pts').value=config.refPts;
-  document.getElementById('cfg-review-pts').value=config.reviewPts;
-  document.getElementById('cfg-tuned').value=config.tuned;
-  document.getElementById('cfg-built').value=config.built;
-  document.getElementById('cfg-elite').value=config.elite;
-  document.getElementById('cfg-redeem-5').value=config.redeem5||100;
-  document.getElementById('cfg-redeem-15').value=config.redeem15||250;
-  document.getElementById('cfg-redeem-30').value=config.redeem30||500;
-  document.getElementById('cfg-redeem-oil').value=config.redeemOil||750;
-  document.getElementById('cfg-admin-user').value=config.adminUser||'Moody';
-  document.getElementById('cfg-admin-pass').value=config.adminPass||'Malik0509';
-}
-function saveSettings(){
-  config.spendPts=parseInt(document.getElementById('cfg-spend-pts').value);
-  config.refPts=parseInt(document.getElementById('cfg-ref-pts').value);
-  config.reviewPts=parseInt(document.getElementById('cfg-review-pts').value);
-  config.tuned=parseInt(document.getElementById('cfg-tuned').value);
-  config.built=parseInt(document.getElementById('cfg-built').value);
-  config.elite=parseInt(document.getElementById('cfg-elite').value);
-  config.redeem5=parseInt(document.getElementById('cfg-redeem-5').value);
-  config.redeem15=parseInt(document.getElementById('cfg-redeem-15').value);
-  config.redeem30=parseInt(document.getElementById('cfg-redeem-30').value);
-  config.redeemOil=parseInt(document.getElementById('cfg-redeem-oil').value);
-  config.adminUser=document.getElementById('cfg-admin-user').value||'Moody';
-  config.adminPass=document.getElementById('cfg-admin-pass').value||'Malik0509';
-  save(); toast('Settings saved!');
+function renderAdminSettings() {
+  document.getElementById('admin-settings').innerHTML = `
+    <div class="card">
+      <div class="card-title">Program Settings</div>
+      <div class="setting-row">
+        <div><div class="setting-label">⚙️ TUNED starts at (pts)</div></div>
+        <input class="setting-input" type="number" id="cfg-tuned" value="${config.tuned}" min="1">
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">🚀 BUILT starts at (pts)</div></div>
+        <input class="setting-input" type="number" id="cfg-built" value="${config.built}" min="1">
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">🏁 MOODY ELITE starts at (pts)</div></div>
+        <input class="setting-input" type="number" id="cfg-elite" value="${config.elite}" min="1">
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">💵 Points per $1 spent</div></div>
+        <input class="setting-input" type="number" id="cfg-dpp" value="2" min="1">
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">🤝 Referral bonus (pts)</div></div>
+        <input class="setting-input" type="number" id="cfg-ref" value="${config.referralBonus}" min="0">
+      </div>
+      <button class="btn btn-primary" style="margin-top:20px;" onclick="saveSettings()">Save Settings</button>
+    </div>
+  `;
 }
 
-// ════════════════════════════════
-// ACTIVITY LOG
-// ════════════════════════════════
-function logActivity(name,action,pts){
-  activity.push({customerName:name,action,points:pts,date:new Date().toLocaleDateString()});
-  if(activity.length>200)activity.splice(0,activity.length-200);
+function saveSettings() {
+  config.tuned = parseInt(document.getElementById('cfg-tuned').value)||200;
+  config.built = parseInt(document.getElementById('cfg-built').value)||500;
+  config.elite = parseInt(document.getElementById('cfg-elite').value)||1000;
+  config.referralBonus = parseInt(document.getElementById('cfg-ref').value)||3;
+  localStorage.setItem('cfg-tuned', config.tuned);
+  localStorage.setItem('cfg-built', config.built);
+  localStorage.setItem('cfg-elite', config.elite);
+  localStorage.setItem('cfg-ref', config.referralBonus);
+  toast('✅ Settings saved');
 }
 
-function adjustPointsPrompt(id){
-  const c=customers.find(x=>x.id===id); if(!c)return;
-  const input=prompt(`Adjust points for ${c.name}\nCurrent balance: ${c.points} pts\n\nEnter amount (use + to add, - to subtract):\nExamples: +50 or -100`);
-  if(input===null||input.trim()==='') return;
-  const raw=input.trim();
-  const num=parseInt(raw);
-  if(isNaN(num)){toast('Invalid number. Use +50 or -100 format.');return;}
-  const before=c.points;
-  c.points=Math.max(0,c.points+num);
-  const actual=c.points-before;
-  const note=raw.startsWith('-')?`Points deducted: ${Math.abs(num)}`:`Points added: ${num}`;
-  logActivity(c.name,'Manual adjustment (admin)',actual);
-  save();
-  toast(`✅ ${c.name}: ${actual>=0?'+':''}${actual} pts → New total: ${c.points}`);
-  // refresh whichever view is active
-  const detailView=document.getElementById('view-customer-detail');
-  if(detailView&&detailView.classList.contains('active')){
-    showCustomerDetail(id);
-  } else {
-    renderCustomers('');
-  }
-}
-
-function removeService(customerId, histIndex){
-  const c=customers.find(x=>x.id===customerId); if(!c) return;
-  const entry=c.history[histIndex]; if(!entry) return;
-  if(!confirm(`Remove this service?\n\n${entry.type} — $${entry.amount} — ${entry.date}\n\nThis will also deduct ${entry.points} points from ${c.name}'s balance.`)) return;
-  // deduct the points
-  c.points=Math.max(0, c.points - entry.points);
-  c.totalSpent=Math.max(0, c.totalSpent - parseFloat(entry.amount));
-  c.visits=Math.max(0, c.visits - 1);
-  // remove the history entry
-  c.history.splice(histIndex, 1);
-  logActivity(c.name, `Service removed: ${entry.type}`, -entry.points);
-  save();
-  toast(`✅ Service removed. -${entry.points} pts from ${c.name}.`);
-  showCustomerDetail(customerId);
-}
-
-function removeCustomer(id){
-  const c=customers.find(x=>x.id===id); if(!c)return;
-  if(!confirm(`Remove ${c.name} from the loyalty program?\n\nThis will permanently delete their account and all service history.`)) return;
-  customers=customers.filter(x=>x.id!==id);
-  logActivity(c.name,'Account removed by admin',0);
-  save();
-  toast(`${c.name} has been removed.`);
-  const detailView=document.getElementById('view-customer-detail');
-  if(detailView&&detailView.classList.contains('active')){
-    showView('customers');
-  } else {
-    renderCustomers('');
-  }
+function adminLogout() {
+  customers=[];
+  document.getElementById('screen-admin').style.display='none';
+  document.getElementById('screen-login').style.display='flex';
+  document.getElementById('admin-password').value='';
 }
 </script>
 </body>
