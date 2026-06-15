@@ -424,6 +424,12 @@
 // ═══════════════════════════════════════════════
 const API = 'https://superagent-df2088bd.base44.app/functions/moodyMembers';
 
+// SHA-256 — password never leaves the browser in plaintext
+async function sha256(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
 async function apiCall(payload) {
   const res = await fetch(API, {
     method: 'POST',
@@ -516,7 +522,8 @@ async function doLogin() {
   const password = document.getElementById('login-password').value.trim();
   if(!username||!password) { toast('Fill in all fields'); return; }
   setLoading(btn, true);
-  const res = await apiCall({ action:'login', username, password });
+  const pwHash = await sha256(password);
+  const res = await apiCall({ action:'login', username, password: pwHash });
   setLoading(btn, false);
   if(res.error) { toast('❌ '+res.error); return; }
   currentUser = res.member;
@@ -534,7 +541,8 @@ async function doRegister() {
   const referred_by = document.getElementById('reg-referral').value.trim();
   if(!full_name||!username||!password) { toast('Name, username and password are required'); return; }
   setLoading(btn, true);
-  const res = await apiCall({ action:'register', full_name, username, password, email, phone, vehicle, referred_by });
+  const pwHash = await sha256(password);
+  const res = await apiCall({ action:'register', full_name, username, password: pwHash, email, phone, vehicle, referred_by });
   setLoading(btn, false);
   if(res.error) { toast('❌ '+res.error); return; }
   currentUser = res.member;
@@ -544,7 +552,6 @@ async function doRegister() {
 
 async function doAdminLogin() {
   const pw = document.getElementById('admin-password').value.trim();
-  if(pw !== 'Malik0509') { toast('❌ Wrong password'); return; }
   const btn = document.getElementById('btn-admin-login');
   setLoading(btn, true);
   const res = await apiCall({ action:'list', admin_password: pw });
