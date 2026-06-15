@@ -229,7 +229,7 @@
 <!-- ════════════════════════════════════════════════════
      MAIN APP (shown after login)
 ════════════════════════════════════════════════════ -->
-<div id="screen-app" style="display:none;">
+<div id="screen-portal" style="display:none;">
 
   <!-- NAV -->
   <div class="nav" id="main-nav">
@@ -413,7 +413,7 @@
     </div>
   </div>
 
-</div><!-- end screen-app -->
+</div><!-- end screen-portal -->
 
 <script>
 // ═══════════════════════════════════════════════
@@ -536,7 +536,7 @@ async function doAdminLogin() {
   if(res.error) { toast('❌ '+res.error); return; }
   customers = res.members;
   document.getElementById('screen-login').style.display='none';
-  document.getElementById('screen-admin').style.display='block';
+  document.getElementById('screen-portal').style.display='block';
   renderAdmin();
 }
 
@@ -854,7 +854,7 @@ function saveSettings() {
 
 function adminLogout() {
   customers=[];
-  document.getElementById('screen-admin').style.display='none';
+  document.getElementById('screen-portal').style.display='none';
   document.getElementById('screen-login').style.display='flex';
   document.getElementById('admin-password').value='';
 }
