@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Moody Performance Loyalty</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Inter',sans-serif; background:#0a0a0a; color:#fff; min-height:100vh; }
+
+    /* ── NAV ── */
+    .nav { display:flex; justify-content:space-between; align-items:center; padding:18px 32px; background:#111; border-bottom:2px solid #e05c2a; }
+    .nav-logo { font-size:22px; font-weight:900; letter-spacing:2px; color:#e05c2a; }
+    .nav-tabs  { display:flex; gap:12px; }
+    .nav-tab   { padding:8px 18px; border-radius:6px; border:none; cursor:pointer; font-weight:600; font-size:13px; background:transparent; color:#aaa; transition:all .2s; }
+    .nav-tab.active,.nav-tab:hover { background:#e05c2a; color:#fff; }
+    .nav-user  { display:flex; align-items:center; gap:10px; font-size:13px; color:#aaa; }
+    .nav-user strong { color:#fff; }
+    .nav-user button { background:transparent; border:1px solid #444; color:#aaa; padding:5px 12px; border-radius:6px; cursor:pointer; font-size:12px; }
+    .nav-user button:hover { border-color:#e05c2a; color:#e05c2a; }
+
+    /* ── VIEWS ── */
+    .view { display:none; padding:32px; max-width:960px; margin:0 auto; }
+    .view.active { display:block; }
+
+    /* ── CARDS ── */
+    .card { background:#1a1a1a; border:1px solid #2a2a2a; border-radius:12px; padding:24px; margin-bottom:20px; }
+    .card-title { font-size:13px; text-transform:uppercase; letter-spacing:1.5px; color:#e05c2a; margin-bottom:8px; font-weight:700; }
+    .card-value { font-size:36px; font-weight:900; }
+    .card-sub   { font-size:13px; color:#888; margin-top:4px; }
+
+    /* ── GRIDS ── */
+    .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+    .grid-2 { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; }
+
+    /* ── TIER BADGES ── */
+    .tier-badge { display:inline-block; padding:6px 16px; border-radius:20px; font-weight:700; font-size:14px; margin-bottom:12px; }
+    .tier-STOCK { background:#333; color:#ccc; }
+    .tier-TUNED { background:#1a3a1a; color:#4caf50; }
+    .tier-BUILT { background:#1a2a4a; color:#64b5f6; }
+    .tier-ELITE { background:#3a1a0a; color:#e05c2a; }
+
+    /* ── PROGRESS ── */
+    .progress-wrap { background:#2a2a2a; border-radius:99px; height:12px; margin:12px 0 6px; overflow:hidden; }
+    .progress-bar  { height:12px; border-radius:99px; background:linear-gradient(90deg,#e05c2a,#ff8c55); transition:width .6s ease; }
+    .progress-label { font-size:12px; color:#888; }
+
+    /* ── PERKS ── */
+    .perks { list-style:none; margin-top:10px; }
+    .perks li { padding:6px 0; font-size:14px; color:#ccc; border-bottom:1px solid #222; }
+    .perks li::before { content:"✓ "; color:#e05c2a; font-weight:700; }
+
+    /* ── FORMS ── */
+    .form-group { margin-bottom:16px; }
+    label { display:block; font-size:13px; color:#aaa; margin-bottom:6px; font-weight:600; }
+    input,select,textarea { width:100%; background:#222; border:1px solid #333; border-radius:8px; padding:10px 14px; color:#fff; font-size:14px; outline:none; transition:border .2s; }
+    input:focus,select:focus { border-color:#e05c2a; }
+    select option { background:#222; }
+
+    /* ── BUTTONS ── */
+    .btn { padding:12px 24px; border-radius:8px; border:none; cursor:pointer; font-weight:700; font-size:14px; transition:all .2s; }
+    .btn-primary   { background:#e05c2a; color:#fff; }
+    .btn-primary:hover { background:#c44e22; }
+    .btn-secondary { background:#2a2a2a; color:#ccc; }
+    .btn-secondary:hover { background:#333; }
+    .btn-sm { padding:6px 14px; font-size:12px; }
+    .btn-outline { background:transparent; border:1px solid #e05c2a; color:#e05c2a; }
+    .btn-outline:hover { background:#e05c2a; color:#fff; }
+
+    /* ── TABLE ── */
+    table { width:100%; border-collapse:collapse; font-size:14px; }
+    th { text-align:left; padding:10px 12px; color:#e05c2a; font-size:12px; text-transform:uppercase; letter-spacing:1px; border-bottom:1px solid #2a2a2a; }
+    td { padding:12px; border-bottom:1px solid #1e1e1e; color:#ccc; }
+    tr:hover td { background:#1e1e1e; }
+
+    /* ── SETTINGS ── */
+    .setting-row { display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-bottom:1px solid #222; }
+    .setting-row:last-child { border-bottom:none; }
+    .setting-label { font-size:14px; color:#ccc; }
+    .setting-desc  { font-size:12px; color:#666; margin-top:2px; }
+    .setting-input { width:80px; text-align:center; }
+
+    /* ── TOAST ── */
+    #toast { position:fixed; bottom:24px; right:24px; background:#e05c2a; color:#fff; padding:12px 24px; border-radius:8px; font-weight:600; font-size:14px; display:none; z-index:999; animation:fadeIn .3s; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+    /* ── MISC ── */
+    .section-title { font-size:22px; font-weight:900; margin-bottom:20px; }
+    .flex-between  { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+    .search-input  { max-width:260px; }
+
+    /* ════════════════════════════════════════
+       CUSTOMER PORTAL STYLES
+    ════════════════════════════════════════ */
+
+    /* Login Screen */
+    #screen-login {
+      display:flex; align-items:center; justify-content:center;
+      min-height:100vh; background:#0a0a0a;
+    }
+    .login-box {
+      background:#111; border:1px solid #2a2a2a; border-radius:16px;
+      padding:48px 40px; width:100%; max-width:420px; text-align:center;
+    }
+    .login-logo { font-size:28px; font-weight:900; color:#e05c2a; letter-spacing:3px; margin-bottom:6px; }
+    .login-sub  { font-size:14px; color:#666; margin-bottom:32px; }
+    .login-toggle { display:flex; background:#1a1a1a; border-radius:8px; margin-bottom:24px; overflow:hidden; }
+    .login-toggle button { flex:1; padding:10px; border:none; background:transparent; color:#888; font-size:13px; font-weight:600; cursor:pointer; transition:all .2s; }
+    .login-toggle button.active { background:#e05c2a; color:#fff; }
+
+    /* Member Portal Hero */
+    .portal-hero {
+      background:linear-gradient(135deg,#1a0a00,#2a1205);
+      border:1px solid #3a2010; border-radius:16px;
+      padding:32px; margin-bottom:24px; position:relative; overflow:hidden;
+    }
+    .portal-hero::before {
+      content:''; position:absolute; top:-40px; right:-40px;
+      width:180px; height:180px; border-radius:50%;
+      background:radial-gradient(circle,rgba(224,92,42,.15),transparent 70%);
+    }
+    .portal-hero-name  { font-size:28px; font-weight:900; margin-bottom:4px; }
+    .portal-hero-vehicle { font-size:14px; color:#888; margin-bottom:16px; }
+    .portal-hero-pts   { font-size:56px; font-weight:900; color:#e05c2a; line-height:1; }
+    .portal-hero-ptslabel { font-size:14px; color:#888; margin-top:4px; margin-bottom:20px; }
+    .portal-tier-row   { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+
+    /* Tier road */
+    .tier-road {
+      display:flex; gap:0; margin:24px 0 8px; position:relative;
+    }
+    .tier-road::before {
+      content:''; position:absolute; top:50%; left:0; right:0; height:3px;
+      background:#2a2a2a; transform:translateY(-50%); z-index:0;
+    }
+    .tier-stop {
+      flex:1; display:flex; flex-direction:column; align-items:center;
+      position:relative; z-index:1;
+    }
+    .tier-stop-dot {
+      width:20px; height:20px; border-radius:50%; border:3px solid #2a2a2a;
+      background:#0a0a0a; transition:all .3s;
+    }
+    .tier-stop.done .tier-stop-dot  { background:#e05c2a; border-color:#e05c2a; }
+    .tier-stop.curr .tier-stop-dot  { background:#fff; border-color:#e05c2a; box-shadow:0 0 0 4px rgba(224,92,42,.3); }
+    .tier-stop-label { font-size:10px; color:#555; margin-top:6px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
+    .tier-stop.done .tier-stop-label,
+    .tier-stop.curr .tier-stop-label { color:#e05c2a; }
+
+    /* Redeem cards */
+    .redeem-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
+    .redeem-card {
+      background:#1a1a1a; border:1px solid #2a2a2a; border-radius:12px;
+      padding:18px; text-align:center; transition:border .2s;
+    }
+    .redeem-card:hover { border-color:#e05c2a; }
+    .redeem-card.locked { opacity:.45; pointer-events:none; }
+    .redeem-icon  { font-size:28px; margin-bottom:8px; }
+    .redeem-title { font-size:14px; font-weight:700; margin-bottom:4px; }
+    .redeem-cost  { font-size:12px; color:#e05c2a; font-weight:700; margin-bottom:10px; }
+    .redeem-avail { font-size:11px; color:#555; }
+
+    /* Activity timeline */
+    .timeline { list-style:none; }
+    .timeline li { display:flex; gap:14px; padding:12px 0; border-bottom:1px solid #1e1e1e; align-items:flex-start; }
+    .timeline li:last-child { border-bottom:none; }
+    .tl-dot { width:10px; height:10px; border-radius:50%; background:#e05c2a; margin-top:5px; flex-shrink:0; }
+    .tl-info { flex:1; }
+    .tl-title { font-size:14px; color:#ccc; }
+    .tl-date  { font-size:12px; color:#555; margin-top:2px; }
+    .tl-pts   { font-size:14px; font-weight:700; color:#e05c2a; white-space:nowrap; }
+
+    @media(max-width:600px){
+      .grid-3,.grid-2,.redeem-grid{grid-template-columns:1fr;}
+      .nav{flex-direction:column;gap:12px;}
+      .login-box{padding:32px 20px;}
+      .portal-hero-pts{font-size:40px;}
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════
+     LOGIN / REGISTER SCREEN
+════════════════════════════════════════════════════ -->
+<div id="screen-login">
+  <div class="login-box">
+    <div class="login-logo">MOODY</div>
+    <div class="login-sub">Performance Loyalty Program</div>
+
+    <div class="login-toggle">
+      <button class="active" id="toggle-login-btn" onclick="switchAuth('login')">Member Login</button>
+      <button id="toggle-reg-btn" onclick="switchAuth('register')">Register</button>
+      <button id="toggle-admin-btn" onclick="switchAuth('admin')">Shop Admin</button>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <div id="auth-login" style="display:block;">
+      <div class="form-group"><label>Username</label><input type="text" id="login-username" placeholder="your username" autocomplete="username"></div>
+      <div class="form-group"><label>Password</label><input type="password" id="login-pass" placeholder="••••••••"></div>
+      <button class="btn btn-primary" style="width:100%;margin-top:4px;" onclick="loginCustomer()">Log In</button>
+      <div id="login-error" style="color:#e05c2a;font-size:13px;margin-top:10px;display:none;"></div>
+    </div>
+
+    <!-- REGISTER FORM -->
+    <div id="auth-register" style="display:none;">
+      <div class="form-group"><label>Full Name</label><input type="text" id="reg-name" placeholder="John Smith"></div>
+      <div class="form-group"><label>Username</label><input type="text" id="reg-username" placeholder="choose a username" autocomplete="username"></div>
+      <div class="form-group"><label>Email (optional)</label><input type="email" id="reg-email" placeholder="your@email.com"></div>
+      <div class="form-group"><label>Phone</label><input type="tel" id="reg-phone" placeholder="(909) 555-0000"></div>
+      <div class="form-group"><label>Vehicle (Year / Make / Model)</label><input type="text" id="reg-vehicle" placeholder="2020 Honda Civic Si"></div>
+      <div class="form-group"><label>Password</label><input type="password" id="reg-pass" placeholder="Create a password"></div>
+      <div class="form-group"><label>Referred By (optional)</label><input type="text" id="reg-referrer" placeholder="Who referred you?"></div>
+      <button class="btn btn-primary" style="width:100%;margin-top:4px;" onclick="registerCustomer()">Create Account</button>
+      <div id="reg-error" style="color:#e05c2a;font-size:13px;margin-top:10px;display:none;"></div>
+    </div>
+
+    <!-- ADMIN LOGIN -->
+    <div id="auth-admin" style="display:none;">
+      <div style="font-size:13px;color:#666;margin-bottom:20px;">Staff access only. Enter the shop admin password to continue.</div>
+      <div class="form-group"><label>Admin Password</label><input type="password" id="admin-pass" placeholder="••••••••"></div>
+      <button class="btn btn-primary" style="width:100%;margin-top:4px;" onclick="loginAdmin()">Enter Shop Dashboard</button>
+      <div id="admin-error" style="color:#e05c2a;font-size:13px;margin-top:10px;display:none;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     MAIN APP (shown after login)
+════════════════════════════════════════════════════ -->
+<div id="screen-app" style="display:none;">
+
+  <!-- NAV -->
+  <div class="nav" id="main-nav">
+    <div class="nav-logo">MOODY MEMBERS</div>
+    <div class="nav-tabs" id="admin-tabs">
+      <button class="nav-tab active" onclick="showView('dashboard')">Dashboard</button>
+      <button class="nav-tab" onclick="showView('customers')">Customers</button>
+      <button class="nav-tab" onclick="showView('log-service')">Log Service</button>
+      <button class="nav-tab" onclick="showView('settings')">Settings</button>
+    </div>
+    <div class="nav-tabs" id="portal-tabs" style="display:none;">
+      <button class="nav-tab active" onclick="showPortalView('my-profile')">My Profile</button>
+      <button class="nav-tab" onclick="showPortalView('my-history')">Service History</button>
+      <button class="nav-tab" onclick="showPortalView('my-redeem')">Redeem Points</button>
+    </div>
+    <div class="nav-user" id="nav-user-info">
+      <span>Logged in as <strong id="nav-username"></strong></span>
+      <button onclick="logout()">Log Out</button>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <!-- ══════════════════════════════════════
+       ADMIN: DASHBOARD
+  ══════════════════════════════════════ -->
+  <div id="view-dashboard" class="view active">
+    <div class="section-title">Shop Overview</div>
+    <div class="grid-3" style="margin-bottom:20px;">
+      <div class="card"><div class="card-title">Total Customers</div><div class="card-value" id="stat-customers">0</div><div class="card-sub">Enrolled members</div></div>
+      <div class="card"><div class="card-title">Points Issued</div><div class="card-value" id="stat-points">0</div><div class="card-sub">All time</div></div>
+      <div class="card"><div class="card-title">Revenue Tracked</div><div class="card-value" id="stat-revenue">$0</div><div class="card-sub">Via loyalty program</div></div>
+    </div>
+    <div class="card"><div class="card-title">Tier Breakdown</div><div class="grid-2" style="margin-top:12px;" id="tier-breakdown"></div></div>
+    <div class="card"><div class="card-title">Recent Activity</div>
+      <table><thead><tr><th>Customer</th><th>Action</th><th>Points</th><th>Date</th></tr></thead>
+      <tbody id="recent-activity"></tbody></table>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       ADMIN: CUSTOMERS
+  ══════════════════════════════════════ -->
+  <div id="view-customers" class="view">
+    <div class="flex-between">
+      <div class="section-title" style="margin-bottom:0;">Customers</div>
+      <button class="btn btn-primary" onclick="showView('add-customer')">+ Add Customer</button>
+    </div>
+    <input class="search-input" type="text" placeholder="Search by name or email…" oninput="filterCustomers(this.value)" style="margin-bottom:20px;">
+    <div id="customer-list"></div>
+  </div>
+
+  <div id="view-customer-detail" class="view">
+    <button class="btn btn-secondary btn-sm" onclick="showView('customers')" style="margin-bottom:20px;">← Back</button>
+    <div id="customer-detail-content"></div>
+  </div>
+
+  <div id="view-add-customer" class="view">
+    <button class="btn btn-secondary btn-sm" onclick="showView('customers')" style="margin-bottom:20px;">← Back</button>
+    <div class="section-title">Add New Customer</div>
+    <div class="card">
+      <div class="form-group"><label>Full Name</label><input type="text" id="new-name" placeholder="e.g. John Smith"></div>
+      <div class="form-group"><label>Username (for member login)</label><input type="text" id="new-username" placeholder="e.g. jsmith92"></div>
+      <div class="form-group"><label>Email</label><input type="email" id="new-email" placeholder="john@email.com"></div>
+      <div class="form-group"><label>Phone</label><input type="tel" id="new-phone" placeholder="(909) 555-0000"></div>
+      <div class="form-group"><label>Vehicle</label><input type="text" id="new-vehicle" placeholder="2020 Honda Civic Si"></div>
+      <div class="form-group"><label>Password (for member login)</label><input type="password" id="new-pass" placeholder="Set their password"></div>
+      <div class="form-group"><label>Referred By (optional)</label><input type="text" id="new-referrer" placeholder="Who referred them?"></div>
+      <button class="btn btn-primary" onclick="addCustomer()">Create Customer</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       ADMIN: LOG SERVICE
+  ══════════════════════════════════════ -->
+  <div id="view-log-service" class="view">
+    <div class="section-title">Log a Service</div>
+    <div class="card">
+      <div class="form-group"><label>Customer</label><select id="svc-customer"><option value="">-- Select Customer --</option></select></div>
+      <div class="form-group"><label>Service Type</label>
+        <select id="svc-type">
+          <option>Dyno Tune</option><option>ECU Flash / Remap</option><option>Suspension Install</option>
+          <option>Exhaust Install</option><option>Engine Build</option><option>Turbo / Supercharger Install</option>
+          <option>Oil Change</option><option>Diagnostic Scan</option><option>Brake Service</option>
+          <option>Custom Fabrication</option><option>Other</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Amount Charged ($)</label><input type="number" id="svc-amount" placeholder="0.00" min="0"></div>
+      <div class="form-group"><label>Notes (optional)</label><textarea id="svc-notes" rows="3" placeholder="Service details…"></textarea></div>
+      <div class="form-group"><label>Date</label><input type="date" id="svc-date"></div>
+      <div style="background:#1e1e1e;border-radius:8px;padding:14px;margin-bottom:16px;font-size:14px;color:#aaa;" id="svc-preview">Select a customer and amount to preview points.</div>
+      <button class="btn btn-primary" onclick="logService()">Log Service & Award Points</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       ADMIN: SETTINGS
+  ══════════════════════════════════════ -->
+  <div id="view-settings" class="view">
+    <div class="section-title">Program Settings</div>
+    <div class="card">
+      <div class="card-title">Points Rules</div>
+      <div class="setting-row"><div><div class="setting-label">Points per $1 spent</div><div class="setting-desc">$1 = X points</div></div><input class="setting-input" type="number" id="cfg-spend-pts" value="2" min="1"></div>
+      <div class="setting-row"><div><div class="setting-label">Points per referral</div><div class="setting-desc">Awarded on referral's first service</div></div><input class="setting-input" type="number" id="cfg-ref-pts" value="3" min="1"></div>
+      <div class="setting-row"><div><div class="setting-label">Points per Google review</div><div class="setting-desc">One-time bonus</div></div><input class="setting-input" type="number" id="cfg-review-pts" value="5" min="0"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Tier Thresholds</div>
+      <div class="setting-row"><div><div class="setting-label">⚙️ TUNED starts at (pts)</div></div><input class="setting-input" type="number" id="cfg-tuned" value="200" min="1"></div>
+      <div class="setting-row"><div><div class="setting-label">🚀 BUILT starts at (pts)</div></div><input class="setting-input" type="number" id="cfg-built" value="500" min="1"></div>
+      <div class="setting-row"><div><div class="setting-label">🏁 MOODY ELITE starts at (pts)</div></div><input class="setting-input" type="number" id="cfg-elite" value="1000" min="1"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Redemption Costs</div>
+      <div class="setting-row"><div><div class="setting-label">Points for $5 off</div></div><input class="setting-input" type="number" id="cfg-redeem-5" value="100" min="1"></div>
+      <div class="setting-row"><div><div class="setting-label">Points for $15 off</div></div><input class="setting-input" type="number" id="cfg-redeem-15" value="250" min="1"></div>
+      <div class="setting-row"><div><div class="setting-label">Points for $30 credit</div></div><input class="setting-input" type="number" id="cfg-redeem-30" value="500" min="1"></div>
+      <div class="setting-row"><div><div class="setting-label">Points for free oil change</div></div><input class="setting-input" type="number" id="cfg-redeem-oil" value="750" min="1"></div>
+      <div class="setting-row"><div><div class="setting-label">Admin username</div></div><input class="setting-input" type="text" id="cfg-admin-user" placeholder="Moody"></div>
+      <div class="setting-row"><div><div class="setting-label">Admin password</div></div><input class="setting-input" type="password" id="cfg-admin-pass" placeholder="••••••••"></div>
+    </div>
+    <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       CUSTOMER PORTAL: MY PROFILE
+  ══════════════════════════════════════ -->
+  <div id="view-my-profile" class="view">
+
+    <!-- HERO -->
+    <div class="portal-hero" id="portal-hero"></div>
+
+    <!-- TIER ROAD -->
+    <div class="card">
+      <div class="card-title">Your Journey</div>
+      <div class="tier-road" id="tier-road"></div>
+      <div class="progress-wrap" style="margin-top:16px;">
+        <div class="progress-bar" id="portal-progress-bar" style="width:0%"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px;">
+        <span style="font-size:12px;color:#888;" id="portal-progress-left"></span>
+        <span style="font-size:12px;color:#e05c2a;font-weight:700;" id="portal-progress-pct"></span>
+      </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="grid-3" style="margin-bottom:20px;" id="portal-stats"></div>
+
+    <!-- PERKS -->
+    <div class="card" id="portal-perks"></div>
+
+    <!-- NEXT TIER PREVIEW -->
+    <div class="card" id="portal-next-tier"></div>
+
+  </div>
+
+  <!-- ══════════════════════════════════════
+       CUSTOMER PORTAL: SERVICE HISTORY
+  ══════════════════════════════════════ -->
+  <div id="view-my-history" class="view">
+    <div class="section-title">My Service History</div>
+    <div class="card">
+      <ul class="timeline" id="portal-timeline"></ul>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       CUSTOMER PORTAL: REDEEM POINTS
+  ══════════════════════════════════════ -->
+  <div id="view-my-redeem" class="view">
+    <div class="section-title">Redeem Your Points</div>
+    <div class="card" style="margin-bottom:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div><div class="card-title">Available Balance</div><div class="card-value" style="color:#e05c2a;" id="redeem-balance">0 pts</div></div>
+        <div style="text-align:right;font-size:13px;color:#888;">Points never expire</div>
+      </div>
+    </div>
+    <div class="redeem-grid" id="redeem-options"></div>
+    <div style="font-size:12px;color:#555;margin-top:20px;text-align:center;">
+      To redeem, show this screen to a Moody Performance staff member at the shop.
+    </div>
+  </div>
+
+</div><!-- end screen-app -->
+
+<script>
+// ════════════════════════════════
+// STATE
+// ════════════════════════════════
+let customers = JSON.parse(localStorage.getItem('moody_customers') || '[]');
+let activity  = JSON.parse(localStorage.getItem('moody_activity')  || '[]');
+const _defaults = {
+  spendPts:2, refPts:3, reviewPts:5,
+  tuned:200, built:500, elite:1000,
+  redeem5:100, redeem15:250, redeem30:500, redeemOil:750,
+  adminPass:'Malik0509',
+  adminUser:'Moody'
+};
+let config = Object.assign({}, _defaults, JSON.parse(localStorage.getItem('moody_config') || '{}'));
+// Always enforce correct admin credentials unless user has explicitly changed them
+if(config.adminPass==='moody2024') config.adminPass='Malik0509';
+save();
+
+let currentUser = null; // { type:'admin' } or { type:'customer', id:'...' }
+
+// ════════════════════════════════
+// TIER HELPERS
+// ════════════════════════════════
+function getTierKey(pts) {
+  if(pts>=config.elite) return 'ELITE';
+  if(pts>=config.built) return 'BUILT';
+  if(pts>=config.tuned) return 'TUNED';
+  return 'STOCK';
+}
+function getTierName(pts) {
+  return {STOCK:'STOCK',TUNED:'TUNED',BUILT:'BUILT',ELITE:'MOODY ELITE'}[getTierKey(pts)];
+}
+function getTierEmoji(key){return{STOCK:'🔧',TUNED:'⚙️',BUILT:'🚀',ELITE:'🏁'}[key];}
+function nextTierInfo(pts) {
+  if(pts<config.tuned) return {name:'TUNED',threshold:config.tuned,emoji:'⚙️'};
+  if(pts<config.built) return {name:'BUILT',threshold:config.built,emoji:'🚀'};
+  if(pts<config.elite) return {name:'MOODY ELITE',threshold:config.elite,emoji:'🏁'};
+  return null;
+}
+function tierPerks(key){
+  return {
+    STOCK:['5% off your first service','Access to member-only deals'],
+    TUNED:['5% off all services','Priority scheduling','10% off in your birthday month'],
+    BUILT:['10% off all services','Free diagnostic scan every visit','Early access to new products','Invited to exclusive shop events'],
+    ELITE:['15% off all services','Free oil change once per year','Dedicated service advisor','Wall of Fame + exclusive merch drops']
+  }[key]||[];
+}
+function prevTierThreshold(pts){
+  if(pts>=config.elite) return config.elite;
+  if(pts>=config.built) return config.built;
+  if(pts>=config.tuned) return config.tuned;
+  return 0;
+}
+
+// ════════════════════════════════
+// SAVE
+// ════════════════════════════════
+function save(){
+  localStorage.setItem('moody_customers',JSON.stringify(customers));
+  localStorage.setItem('moody_activity',JSON.stringify(activity));
+  localStorage.setItem('moody_config',JSON.stringify(config));
+}
+
+// ════════════════════════════════
+// TOAST
+// ════════════════════════════════
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.style.display='block';
+  setTimeout(()=>t.style.display='none',2800);
+}
+
+// ════════════════════════════════
+// AUTH
+// ════════════════════════════════
+function switchAuth(tab){
+  ['login','register','admin'].forEach(t=>{
+    const el=document.getElementById('auth-'+t);
+    if(el){ el.style.display = (t===tab)?'block':'none'; }
+    const btn=document.getElementById('toggle-'+t+'-btn');
+    if(btn){ btn.classList.toggle('active',t===tab); }
+  });
+}
+
+function loginCustomer(){
+  const username=document.getElementById('login-username').value.trim().toLowerCase();
+  const pass=document.getElementById('login-pass').value;
+  const c=customers.find(x=>(x.username||'').toLowerCase()===username && x.password===pass);
+  const err=document.getElementById('login-error');
+  if(!c){err.textContent='Username or password incorrect.';err.style.display='block';return;}
+  err.style.display='none';
+  currentUser={type:'customer',id:c.id};
+  enterApp();
+}
+
+function registerCustomer(){
+  const name=document.getElementById('reg-name').value.trim();
+  const username=document.getElementById('reg-username').value.trim().toLowerCase();
+  const email=document.getElementById('reg-email').value.trim().toLowerCase();
+  const phone=document.getElementById('reg-phone').value.trim();
+  const vehicle=document.getElementById('reg-vehicle').value.trim();
+  const pass=document.getElementById('reg-pass').value;
+  const referrer=document.getElementById('reg-referrer').value.trim();
+  const err=document.getElementById('reg-error');
+  if(!name||!username||!pass){err.textContent='Name, username and password are required.';err.style.display='block';return;}
+  if(customers.find(x=>(x.username||'').toLowerCase()===username)){err.textContent='That username is already taken.';err.style.display='block';return;}
+  const c={id:Date.now().toString(),name,username,email,phone,vehicle,password:pass,
+    points:0,totalSpent:0,referrals:0,visits:0,history:[],joined:new Date().toLocaleDateString()};
+  customers.push(c);
+  if(referrer){
+    const ref=customers.find(x=>x.name.toLowerCase()===referrer.toLowerCase());
+    if(ref){ref.points+=config.refPts;ref.referrals++;logActivity(ref.name,`Referral: ${name} joined`,config.refPts);}
+  }
+  logActivity(name,'Joined loyalty program',0);
+  save();
+  err.style.display='none';
+  currentUser={type:'customer',id:c.id};
+  enterApp();
+}
+
+// ensure correct tab shown on load
+window.addEventListener('DOMContentLoaded', function(){
+  switchAuth('login');
+});
+
+function loginAdmin(){
+  const pass=document.getElementById('admin-pass').value;
+  const err=document.getElementById('admin-error');
+  if(pass!==config.adminPass){err.textContent='Incorrect password.';err.style.display='block';return;}
+  err.style.display='none';
+  currentUser={type:'admin'};
+  enterApp();
+}
+
+function logout(){
+  currentUser=null;
+  document.getElementById('screen-app').style.display='none';
+  document.getElementById('screen-login').style.display='flex';
+  ['login-username','login-pass','admin-pass'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';}); 
+  switchAuth('login');
+}
+
+function enterApp(){
+  document.getElementById('screen-login').style.display='none';
+  document.getElementById('screen-app').style.display='block';
+  const isAdmin=currentUser.type==='admin';
+  document.getElementById('admin-tabs').style.display   = isAdmin?'flex':'none';
+  document.getElementById('portal-tabs').style.display  = isAdmin?'none':'flex';
+  document.getElementById('nav-username').textContent   = isAdmin?'Admin':customers.find(x=>x.id===currentUser.id)?.name||'';
+
+  if(isAdmin){
+    showView('dashboard');
+  } else {
+    // hide all admin views
+    ['dashboard','customers','customer-detail','add-customer','log-service','settings'].forEach(v=>{
+      const el=document.getElementById('view-'+v); if(el) el.style.display='none';
+    });
+    showPortalView('my-profile');
+  }
+}
+
+// ════════════════════════════════
+// ADMIN VIEWS
+// ════════════════════════════════
+function showView(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('#admin-tabs .nav-tab').forEach(t=>t.classList.remove('active'));
+  const el=document.getElementById('view-'+id);
+  if(el){el.classList.add('active');el.style.display='block';}
+  const map={dashboard:0,customers:1,'log-service':2,settings:3};
+  if(map[id]!==undefined) document.querySelectorAll('#admin-tabs .nav-tab')[map[id]]?.classList.add('active');
+  if(id==='dashboard')   renderDashboard();
+  if(id==='customers')   renderCustomers('');
+  if(id==='log-service') populateCustomerSelect();
+  if(id==='settings')    loadSettings();
+  const d=document.getElementById('svc-date'); if(d)d.value=new Date().toISOString().split('T')[0];
+}
+
+// ════════════════════════════════
+// CUSTOMER PORTAL VIEWS
+// ════════════════════════════════
+function showPortalView(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('#portal-tabs .nav-tab').forEach(t=>t.classList.remove('active'));
+  const el=document.getElementById('view-'+id); if(el){el.classList.add('active');el.style.display='block';}
+  const map={'my-profile':0,'my-history':1,'my-redeem':2};
+  if(map[id]!==undefined) document.querySelectorAll('#portal-tabs .nav-tab')[map[id]]?.classList.add('active');
+  if(id==='my-profile') renderPortalProfile();
+  if(id==='my-history') renderPortalHistory();
+  if(id==='my-redeem')  renderPortalRedeem();
+}
+
+// ════════════════════════════════
+// PORTAL: PROFILE
+// ════════════════════════════════
+function renderPortalProfile(){
+  const c=customers.find(x=>x.id===currentUser.id); if(!c) return;
+  const key=getTierKey(c.points);
+  const tierColors={STOCK:'#888',TUNED:'#4caf50',BUILT:'#64b5f6',ELITE:'#e05c2a'};
+  const col=tierColors[key];
+  const next=nextTierInfo(c.points);
+  const prev=prevTierThreshold(c.points);
+  const pct=next ? Math.min(100,Math.round(((c.points-prev)/(next.threshold-prev))*100)) : 100;
+
+  // HERO
+  document.getElementById('portal-hero').innerHTML=`
+    <div class="portal-hero-name">Welcome back, ${c.name.split(' ')[0]} 👋</div>
+    <div class="portal-hero-vehicle">${c.vehicle||'Moody Performance Member'}</div>
+    <div class="portal-hero-pts">${c.points.toLocaleString()}</div>
+    <div class="portal-hero-ptslabel">Available Points</div>
+    <div class="portal-tier-row">
+      <span class="tier-badge tier-${key}" style="margin-bottom:0;font-size:16px;">${getTierEmoji(key)} ${getTierName(c.points)}</span>
+      ${next ? `<span style="font-size:13px;color:#888;">${next.threshold-c.points} pts until ${next.emoji} ${next.name}</span>` : '<span style="font-size:13px;color:#e05c2a;">🏁 You\'ve reached the top tier!</span>'}
+    </div>`;
+
+  // TIER ROAD
+  const tiers=[
+    {key:'STOCK',label:'STOCK',threshold:0,emoji:'🔧'},
+    {key:'TUNED',label:'TUNED',threshold:config.tuned,emoji:'⚙️'},
+    {key:'BUILT',label:'BUILT',threshold:config.built,emoji:'🚀'},
+    {key:'ELITE',label:'ELITE',threshold:config.elite,emoji:'🏁'}
+  ];
+  const currentIdx=tiers.findIndex(t=>t.key===key);
+  document.getElementById('tier-road').innerHTML=tiers.map((t,i)=>{
+    const cls=i<currentIdx?'done':i===currentIdx?'curr':'';
+    return `<div class="tier-stop ${cls}"><div class="tier-stop-dot"></div><div class="tier-stop-label">${t.emoji} ${t.label}</div></div>`;
+  }).join('');
+
+  // PROGRESS BAR
+  document.getElementById('portal-progress-bar').style.width=pct+'%';
+  if(next){
+    document.getElementById('portal-progress-left').textContent=`${c.points} / ${next.threshold} pts`;
+    document.getElementById('portal-progress-pct').textContent=pct+'% to '+next.name;
+  } else {
+    document.getElementById('portal-progress-left').textContent='Max tier achieved';
+    document.getElementById('portal-progress-pct').textContent='🏁 Elite';
+  }
+
+  // STATS
+  document.getElementById('portal-stats').innerHTML=`
+    <div class="card"><div class="card-title">Total Spent</div><div class="card-value">$${c.totalSpent.toLocaleString()}</div><div class="card-sub">At Moody Performance</div></div>
+    <div class="card"><div class="card-title">Referrals Made</div><div class="card-value">${c.referrals}</div><div class="card-sub">Friends brought in</div></div>
+    <div class="card"><div class="card-title">Shop Visits</div><div class="card-value">${c.visits}</div><div class="card-sub">Services completed</div></div>`;
+
+  // PERKS
+  const perks=tierPerks(key);
+  document.getElementById('portal-perks').innerHTML=`
+    <div class="card-title">${getTierEmoji(key)} Your ${getTierName(c.points)} Perks</div>
+    <ul class="perks" style="margin-top:12px;">${perks.map(p=>`<li>${p}</li>`).join('')}</ul>`;
+
+  // NEXT TIER
+  if(next){
+    const nextPerks=tierPerks(next.key||{TUNED:'TUNED',BUILT:'BUILT','MOODY ELITE':'ELITE'}[next.name]||'ELITE');
+    document.getElementById('portal-next-tier').innerHTML=`
+      <div class="card-title" style="color:#888;">Next Tier — ${next.emoji} ${next.name}</div>
+      <div style="font-size:13px;color:#666;margin-bottom:12px;">Earn ${(next.threshold-c.points).toLocaleString()} more points to unlock:</div>
+      <ul class="perks">${nextPerks.map(p=>`<li style="color:#666;">${p}</li>`).join('')}</ul>`;
+  } else {
+    document.getElementById('portal-next-tier').innerHTML=`
+      <div style="text-align:center;padding:12px;">
+        <div style="font-size:28px;margin-bottom:8px;">🏁</div>
+        <div style="font-weight:700;color:#e05c2a;">You're at the top — MOODY ELITE</div>
+        <div style="font-size:13px;color:#666;margin-top:6px;">Thank you for being a loyal Moody Performance customer.</div>
+      </div>`;
+  }
+}
+
+// ════════════════════════════════
+// PORTAL: HISTORY
+// ════════════════════════════════
+function renderPortalHistory(){
+  const c=customers.find(x=>x.id===currentUser.id); if(!c) return;
+  const hist=[...(c.history||[])].reverse();
+  document.getElementById('portal-timeline').innerHTML=hist.length?hist.map(h=>`
+    <li>
+      <div class="tl-dot" style="background:${h.points<0?'#888':'#e05c2a'};"></div>
+      <div class="tl-info">
+        <div class="tl-title">${h.type}</div>
+        <div class="tl-date">${h.date}${h.notes?` · ${h.notes}`:''}</div>
+        ${parseFloat(h.amount)>0?`<div style="font-size:13px;color:#888;margin-top:2px;">Amount: $${h.amount}</div>`:''}
+      </div>
+      <div class="tl-pts" style="color:${h.points<0?'#888':'#e05c2a'}">${h.points<0?'':'+'}${h.points} pts</div>
+    </li>`).join('')
+  :'<li style="color:#555;text-align:center;padding:20px;">No services logged yet.</li>';
+}
+
+// ════════════════════════════════
+// PORTAL: REDEEM
+// ════════════════════════════════
+function renderPortalRedeem(){
+  const c=customers.find(x=>x.id===currentUser.id); if(!c) return;
+  document.getElementById('redeem-balance').textContent=c.points.toLocaleString()+' pts';
+  const rewards=[
+    {icon:'🏷️',title:'$5 Off Your Next Service',cost:config.redeem5,id:'r5'},
+    {icon:'💵',title:'$15 Off Your Next Service',cost:config.redeem15,id:'r15'},
+    {icon:'💳',title:'$30 Shop Credit',cost:config.redeem30,id:'r30'},
+    {icon:'🛢️',title:'Free Oil Change',cost:config.redeemOil,id:'roil'},
+  ];
+  document.getElementById('redeem-options').innerHTML=rewards.map(r=>{
+    const canAfford=c.points>=r.cost;
+    return `<div class="redeem-card ${canAfford?'':'locked'}">
+      <div class="redeem-icon">${r.icon}</div>
+      <div class="redeem-title">${r.title}</div>
+      <div class="redeem-cost">${r.cost.toLocaleString()} points</div>
+      ${canAfford
+        ? `<button class="btn btn-outline btn-sm" onclick="redeemReward('${r.id}',${r.cost},'${r.title}')">Redeem</button>`
+        : `<div class="redeem-avail">Need ${(r.cost-c.points).toLocaleString()} more pts</div>`}
+    </div>`;
+  }).join('');
+}
+
+function redeemReward(id,cost,title){
+  const c=customers.find(x=>x.id===currentUser.id); if(!c) return;
+  if(c.points<cost){toast('Not enough points!');return;}
+  if(!confirm(`Redeem ${cost} points for "${title}"?\n\nShow this to shop staff to complete your redemption.`)) return;
+  c.points-=cost;
+  // push into service history so it shows in My History
+  if(!c.history) c.history=[];
+  c.history.push({
+    date: new Date().toLocaleDateString(),
+    type: '🎁 Redemption: ' + title,
+    amount: '0.00',
+    points: -cost,
+    notes: 'Show to staff at Moody Performance'
+  });
+  logActivity(c.name,`Redeemed: ${title}`,-cost);
+  save();
+  toast(`✅ Redeemed! Show staff your screen.`);
+  renderPortalRedeem();
+  // update hero pts too
+  const heroEl=document.getElementById('portal-hero');
+  if(heroEl) renderPortalProfile();
+}
+
+// ════════════════════════════════
+// ADMIN: DASHBOARD
+// ════════════════════════════════
+function renderDashboard(){
+  document.getElementById('stat-customers').textContent=customers.length;
+  document.getElementById('stat-points').textContent=customers.reduce((s,c)=>s+c.points,0).toLocaleString();
+  document.getElementById('stat-revenue').textContent='$'+customers.reduce((s,c)=>s+c.totalSpent,0).toLocaleString();
+  const tiers={STOCK:0,TUNED:0,BUILT:0,ELITE:0};
+  customers.forEach(c=>tiers[getTierKey(c.points)]++);
+  const colors={STOCK:'#555',TUNED:'#4caf50',BUILT:'#64b5f6',ELITE:'#e05c2a'};
+  const emojis={STOCK:'🔧',TUNED:'⚙️',BUILT:'🚀',ELITE:'🏁'};
+  document.getElementById('tier-breakdown').innerHTML=Object.entries(tiers).map(([k,v])=>
+    `<div style="background:#111;border-radius:8px;padding:14px;border-left:4px solid ${colors[k]}">
+      <div style="font-size:13px;color:#aaa;">${emojis[k]} ${k}</div>
+      <div style="font-size:28px;font-weight:900;color:${colors[k]}">${v}</div>
+      <div style="font-size:12px;color:#666;">customers</div></div>`).join('');
+  const recent=[...activity].reverse().slice(0,8);
+  document.getElementById('recent-activity').innerHTML=recent.length?recent.map(a=>
+    `<tr><td>${a.customerName}</td><td>${a.action}</td>
+     <td style="color:${a.points>=0?'#e05c2a':'#888'};font-weight:700;">${a.points>=0?'+':''}${a.points} pts</td>
+     <td style="color:#666;">${a.date}</td></tr>`).join('')
+  :'<tr><td colspan="4" style="color:#555;text-align:center;padding:20px;">No activity yet</td></tr>';
+}
+
+// ════════════════════════════════
+// ADMIN: CUSTOMERS
+// ════════════════════════════════
+function renderCustomers(filter){
+  const filtered=customers.filter(c=>
+    c.name.toLowerCase().includes(filter.toLowerCase())||
+    (c.email||'').toLowerCase().includes(filter.toLowerCase())
+  );
+  document.getElementById('customer-list').innerHTML=filtered.length?filtered.map(c=>{
+    const key=getTierKey(c.points),next=nextTierInfo(c.points);
+    const prev=prevTierThreshold(c.points);
+    const pct=next?Math.min(100,Math.round(((c.points-prev)/(next.threshold-prev))*100)):100;
+    return `<div class="card" style="cursor:pointer;" onclick="showCustomerDetail('${c.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div><div style="font-size:17px;font-weight:700;">${c.name}</div>
+        <div style="font-size:13px;color:#888;">${c.email} · ${c.phone}</div>
+        <div style="font-size:13px;color:#666;">${c.vehicle}</div></div>
+        <div style="text-align:right;"><span class="tier-badge tier-${key}">${getTierName(c.points)}</span>
+        <div style="font-size:22px;font-weight:900;color:#e05c2a;">${c.points.toLocaleString()} pts</div></div>
+      </div>
+      <div class="progress-wrap"><div class="progress-bar" style="width:${pct}%"></div></div>
+      <div class="progress-label">${next?`${c.points}/${next.threshold} pts to ${next.name}`:'🏁 Max tier!'}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+        <div style="display:flex;gap:20px;font-size:13px;color:#888;">
+          <span>💰 $${c.totalSpent.toLocaleString()}</span>
+          <span>👥 ${c.referrals} referrals</span>
+          <span>🔧 ${c.visits} visits</span>
+        </div>
+        <div style="display:flex;gap:8px;" onclick="event.stopPropagation()">
+          <button class="btn btn-sm btn-outline" onclick="adjustPointsPrompt('${c.id}')">✏️ Pts</button>
+          <button class="btn btn-sm" style="background:#3a0a0a;color:#e05c2a;border:1px solid #5a1a1a;" onclick="removeCustomer('${c.id}')">🗑</button>
+        </div>
+      </div></div>`;
+  }).join(''):'<div class="card" style="text-align:center;color:#555;">No customers found.</div>';
+}
+function filterCustomers(val){renderCustomers(val);}
+
+function showCustomerDetail(id){
+  const c=customers.find(x=>x.id===id); if(!c)return;
+  const key=getTierKey(c.points),next=nextTierInfo(c.points);
+  const prev=prevTierThreshold(c.points);
+  const pct=next?Math.min(100,Math.round(((c.points-prev)/(next.threshold-prev))*100)):100;
+  const hist=(c.history||[]).map((h,i)=>`<tr>
+    <td>${h.date}</td>
+    <td>${h.type}</td>
+    <td>$${h.amount}</td>
+    <td style="color:#e05c2a;font-weight:700;">+${h.points}</td>
+    <td style="color:#888;">${h.notes||''}</td>
+    <td><button class="btn btn-sm" style="background:#3a0a0a;color:#e05c2a;border:1px solid #5a1a1a;padding:4px 10px;font-size:11px;" onclick="removeService('${c.id}',${i})">🗑</button></td>
+  </tr>`).join('')||'<tr><td colspan="6" style="color:#555;text-align:center;">No services yet</td></tr>';
+  document.getElementById('customer-detail-content').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <div><div style="font-size:26px;font-weight:900;">${c.name}</div>
+      <div style="color:#888;font-size:14px;">${c.email} · ${c.phone}</div>
+      <div style="color:#666;font-size:13px;">${c.vehicle}</div></div>
+      <span class="tier-badge tier-${key}" style="font-size:16px;">${getTierName(c.points)}</span>
+    </div>
+    <div class="grid-3" style="margin-bottom:20px;">
+      <div class="card"><div class="card-title">Points</div><div class="card-value" style="color:#e05c2a;">${c.points.toLocaleString()}</div></div>
+      <div class="card"><div class="card-title">Total Spent</div><div class="card-value">$${c.totalSpent.toLocaleString()}</div></div>
+      <div class="card"><div class="card-title">Referrals</div><div class="card-value">${c.referrals}</div></div>
+    </div>
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-title">Tier Progress</div>
+      <div class="progress-wrap"><div class="progress-bar" style="width:${pct}%"></div></div>
+      <div class="progress-label">${next?`${c.points}/${next.threshold} pts to ${next.name}`:'🏁 Max tier reached!'}</div>
+      <ul class="perks" style="margin-top:12px;">${tierPerks(key).map(p=>`<li>${p}</li>`).join('')}</ul>
+    </div>
+    <div class="card"><div class="card-title">Service History</div>
+      <table><thead><tr><th>Date</th><th>Service</th><th>Amount</th><th>Pts</th><th>Notes</th><th></th></tr></thead>
+      <tbody>${hist}</tbody></table>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="awardReferral('${c.id}')">+ Referral Bonus</button>
+      <button class="btn btn-secondary" onclick="awardReview('${c.id}')">+ Google Review</button>
+      <button class="btn btn-outline" onclick="adjustPointsPrompt('${c.id}')">✏️ Adjust Points</button>
+      <button class="btn" style="background:#3a0a0a;color:#e05c2a;border:1px solid #5a1a1a;" onclick="removeCustomer('${c.id}')">🗑 Remove Member</button>
+    </div>`;
+  showView('customer-detail');
+}
+
+function awardReferral(id){
+  const c=customers.find(x=>x.id===id); if(!c)return;
+  c.points+=config.refPts; c.referrals++;
+  logActivity(c.name,'Referral bonus',config.refPts); save();
+  toast(`+${config.refPts} referral pts → ${c.name}`);
+  showCustomerDetail(id);
+}
+function awardReview(id){
+  const c=customers.find(x=>x.id===id); if(!c)return;
+  c.points+=config.reviewPts;
+  logActivity(c.name,'Google Review bonus',config.reviewPts); save();
+  toast(`+${config.reviewPts} review pts → ${c.name}`);
+  showCustomerDetail(id);
+}
+
+// ════════════════════════════════
+// ADMIN: ADD CUSTOMER
+// ════════════════════════════════
+function addCustomer(){
+  const name=document.getElementById('new-name').value.trim();
+  const username=document.getElementById('new-username').value.trim().toLowerCase();
+  const email=document.getElementById('new-email').value.trim().toLowerCase();
+  const phone=document.getElementById('new-phone').value.trim();
+  const vehicle=document.getElementById('new-vehicle').value.trim();
+  const pass=document.getElementById('new-pass').value;
+  const referrer=document.getElementById('new-referrer').value.trim();
+  if(!name){toast('Name is required!');return;}
+  if(username && customers.find(x=>(x.username||'').toLowerCase()===username)){toast('Username already taken!');return;}
+  const c={id:Date.now().toString(),name,username,email,phone,vehicle,password:pass,
+    points:0,totalSpent:0,referrals:0,visits:0,history:[],joined:new Date().toLocaleDateString()};
+  customers.push(c);
+  if(referrer){
+    const ref=customers.find(x=>x.name.toLowerCase()===referrer.toLowerCase());
+    if(ref){ref.points+=config.refPts;ref.referrals++;logActivity(ref.name,`Referral: ${name} joined`,config.refPts);}
+  }
+  logActivity(name,'Joined loyalty program',0); save();
+  toast(`${name} added!`);
+  ['new-name','new-username','new-email','new-phone','new-vehicle','new-pass','new-referrer'].forEach(id=>document.getElementById(id).value='');
+  showView('customers');
+}
+
+// ════════════════════════════════
+// ADMIN: LOG SERVICE
+// ════════════════════════════════
+function populateCustomerSelect(){
+  const sel=document.getElementById('svc-customer');
+  sel.innerHTML='<option value="">-- Select Customer --</option>'+customers.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  sel.onchange=updateSvcPreview;
+  document.getElementById('svc-amount').oninput=updateSvcPreview;
+}
+function updateSvcPreview(){
+  const id=document.getElementById('svc-customer').value;
+  const amt=parseFloat(document.getElementById('svc-amount').value)||0;
+  const c=customers.find(x=>x.id===id),pts=Math.floor(amt*config.spendPts);
+  const el=document.getElementById('svc-preview');
+  if(c&&amt>0){
+    const newPts=c.points+pts;
+    el.innerHTML=`<strong style="color:#e05c2a;">${c.name}</strong> earns <strong style="color:#e05c2a;">+${pts} pts</strong> for $${amt.toFixed(2)}<br>New total: <strong>${newPts.toLocaleString()} pts</strong> → <strong>${getTierName(newPts)}</strong>`;
+  } else el.textContent='Select a customer and amount to preview points.';
+}
+function logService(){
+  const id=document.getElementById('svc-customer').value;
+  const type=document.getElementById('svc-type').value;
+  const amt=parseFloat(document.getElementById('svc-amount').value);
+  const notes=document.getElementById('svc-notes').value.trim();
+  const date=document.getElementById('svc-date').value;
+  const c=customers.find(x=>x.id===id);
+  if(!c){toast('Select a customer!');return;}
+  if(!amt||amt<=0){toast('Enter a valid amount!');return;}
+  const pts=Math.floor(amt*config.spendPts);
+  c.points+=pts; c.totalSpent+=amt; c.visits++;
+  c.history.push({date,type,amount:amt.toFixed(2),points:pts,notes});
+  logActivity(c.name,type,pts); save();
+  toast(`✅ ${c.name} earned +${pts} pts!`);
+  document.getElementById('svc-customer').value='';
+  document.getElementById('svc-amount').value='';
+  document.getElementById('svc-notes').value='';
+  document.getElementById('svc-preview').textContent='Select a customer and amount to preview points.';
+}
+
+// ════════════════════════════════
+// ADMIN: SETTINGS
+// ════════════════════════════════
+function loadSettings(){
+  document.getElementById('cfg-spend-pts').value=config.spendPts;
+  document.getElementById('cfg-ref-pts').value=config.refPts;
+  document.getElementById('cfg-review-pts').value=config.reviewPts;
+  document.getElementById('cfg-tuned').value=config.tuned;
+  document.getElementById('cfg-built').value=config.built;
+  document.getElementById('cfg-elite').value=config.elite;
+  document.getElementById('cfg-redeem-5').value=config.redeem5||100;
+  document.getElementById('cfg-redeem-15').value=config.redeem15||250;
+  document.getElementById('cfg-redeem-30').value=config.redeem30||500;
+  document.getElementById('cfg-redeem-oil').value=config.redeemOil||750;
+  document.getElementById('cfg-admin-user').value=config.adminUser||'Moody';
+  document.getElementById('cfg-admin-pass').value=config.adminPass||'Malik0509';
+}
+function saveSettings(){
+  config.spendPts=parseInt(document.getElementById('cfg-spend-pts').value);
+  config.refPts=parseInt(document.getElementById('cfg-ref-pts').value);
+  config.reviewPts=parseInt(document.getElementById('cfg-review-pts').value);
+  config.tuned=parseInt(document.getElementById('cfg-tuned').value);
+  config.built=parseInt(document.getElementById('cfg-built').value);
+  config.elite=parseInt(document.getElementById('cfg-elite').value);
+  config.redeem5=parseInt(document.getElementById('cfg-redeem-5').value);
+  config.redeem15=parseInt(document.getElementById('cfg-redeem-15').value);
+  config.redeem30=parseInt(document.getElementById('cfg-redeem-30').value);
+  config.redeemOil=parseInt(document.getElementById('cfg-redeem-oil').value);
+  config.adminUser=document.getElementById('cfg-admin-user').value||'Moody';
+  config.adminPass=document.getElementById('cfg-admin-pass').value||'Malik0509';
+  save(); toast('Settings saved!');
+}
+
+// ════════════════════════════════
+// ACTIVITY LOG
+// ════════════════════════════════
+function logActivity(name,action,pts){
+  activity.push({customerName:name,action,points:pts,date:new Date().toLocaleDateString()});
+  if(activity.length>200)activity.splice(0,activity.length-200);
+}
+
+function adjustPointsPrompt(id){
+  const c=customers.find(x=>x.id===id); if(!c)return;
+  const input=prompt(`Adjust points for ${c.name}\nCurrent balance: ${c.points} pts\n\nEnter amount (use + to add, - to subtract):\nExamples: +50 or -100`);
+  if(input===null||input.trim()==='') return;
+  const raw=input.trim();
+  const num=parseInt(raw);
+  if(isNaN(num)){toast('Invalid number. Use +50 or -100 format.');return;}
+  const before=c.points;
+  c.points=Math.max(0,c.points+num);
+  const actual=c.points-before;
+  const note=raw.startsWith('-')?`Points deducted: ${Math.abs(num)}`:`Points added: ${num}`;
+  logActivity(c.name,'Manual adjustment (admin)',actual);
+  save();
+  toast(`✅ ${c.name}: ${actual>=0?'+':''}${actual} pts → New total: ${c.points}`);
+  // refresh whichever view is active
+  const detailView=document.getElementById('view-customer-detail');
+  if(detailView&&detailView.classList.contains('active')){
+    showCustomerDetail(id);
+  } else {
+    renderCustomers('');
+  }
+}
+
+function removeService(customerId, histIndex){
+  const c=customers.find(x=>x.id===customerId); if(!c) return;
+  const entry=c.history[histIndex]; if(!entry) return;
+  if(!confirm(`Remove this service?\n\n${entry.type} — $${entry.amount} — ${entry.date}\n\nThis will also deduct ${entry.points} points from ${c.name}'s balance.`)) return;
+  // deduct the points
+  c.points=Math.max(0, c.points - entry.points);
+  c.totalSpent=Math.max(0, c.totalSpent - parseFloat(entry.amount));
+  c.visits=Math.max(0, c.visits - 1);
+  // remove the history entry
+  c.history.splice(histIndex, 1);
+  logActivity(c.name, `Service removed: ${entry.type}`, -entry.points);
+  save();
+  toast(`✅ Service removed. -${entry.points} pts from ${c.name}.`);
+  showCustomerDetail(customerId);
+}
+
+function removeCustomer(id){
+  const c=customers.find(x=>x.id===id); if(!c)return;
+  if(!confirm(`Remove ${c.name} from the loyalty program?\n\nThis will permanently delete their account and all service history.`)) return;
+  customers=customers.filter(x=>x.id!==id);
+  logActivity(c.name,'Account removed by admin',0);
+  save();
+  toast(`${c.name} has been removed.`);
+  const detailView=document.getElementById('view-customer-detail');
+  if(detailView&&detailView.classList.contains('active')){
+    showView('customers');
+  } else {
+    renderCustomers('');
+  }
+}
+</script>
+</body>
+</html>
