@@ -385,6 +385,20 @@
       <div id="admin-events-list"></div>
     </div>
 
+    <!-- Media Tracker -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+        <div class="card-title" style="margin:0;">📊 Media Tracker</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span style="font-size:12px;color:#888;">Period:</span>
+          <button id="media-period-week" class="btn btn-sm" onclick="setMediaPeriod('week')" style="background:#e05c2a;color:#fff;">This Week</button>
+          <button id="media-period-month" class="btn btn-sm" onclick="setMediaPeriod('month')" style="background:#1a1a1a;color:#aaa;">This Month</button>
+        </div>
+      </div>
+      <div style="font-size:13px;color:#888;margin-bottom:16px;">Track posts and referrals for each sponsor. Numbers reset automatically each period.</div>
+      <div id="media-tracker-table"></div>
+    </div>
+
     <!-- Sponsor Members List -->
     <div class="card">
       <div class="card-title">All Members — Toggle Sponsor Role</div>
@@ -502,6 +516,18 @@
       <div style="font-size:11px;color:#555;margin-top:10px;">Sponsor-only access · Verified by admin</div>
     </div>
 
+    <!-- My Media Stats -->
+    <div class="card" id="my-media-stats-card" style="display:none;">
+      <div class="card-title">📊 My Media Stats</div>
+      <div id="my-media-stats"></div>
+    </div>
+
+    <!-- Sponsor Leaderboard -->
+    <div class="card" id="sponsor-leaderboard-card" style="display:none;">
+      <div class="card-title">🏆 Sponsor Leaderboard</div>
+      <div id="sponsor-leaderboard"></div>
+    </div>
+
     <!-- Upcoming Events / Meetings Calendar -->
     <div class="card">
       <div class="card-title">📅 Upcoming Events & Meetings</div>
@@ -563,6 +589,8 @@ let adminPw = '';       // set at login, used for all admin API calls
 let sponsorEvents = []; // cached events list
 let editingEventId = null; // for event modal edit mode
 let telegramLink = '';  // sponsor telegram invite link
+let mediaPeriod = 'week'; // 'week' or 'month'
+let mediaData = {};   // { memberId: { week: {posts, refs}, month: {posts, refs} } }
 
 // ── TIER HELPERS ──
 function getTierKey(pts) {
@@ -1201,17 +1229,18 @@ function adminLogout() {
 // ════════════════════════════════════════════════════════
 
 async function renderSponsorHub() {
-  // Reload events from backend
-  const res = await apiCall({ action: 'load_events' });
-  sponsorEvents = res.events || [];
-
-  // Load telegram link from config
-  const cfgRes = await apiCall({ action: 'load_config' });
-  if (cfgRes.config && cfgRes.config.telegramLink) {
-    telegramLink = cfgRes.config.telegramLink;
+  // Load events + config (telegram link + media data)
+  const [evRes, cfgRes] = await Promise.all([
+    apiCall({ action: 'load_events' }),
+    apiCall({ action: 'load_config' }),
+  ]);
+  sponsorEvents = evRes.events || [];
+  if (cfgRes.config) {
+    if (cfgRes.config.telegramLink) telegramLink = cfgRes.config.telegramLink;
+    if (cfgRes.config.mediaData) mediaData = cfgRes.config.mediaData;
   }
-
   renderSponsorEvents();
+  renderMemberMediaStats();
 }
 
 function renderSponsorEvents() {
@@ -1297,14 +1326,19 @@ function getEventEmoji(type) {
 // ════════════════════════════════════════════════════════
 
 async function renderAdminSponsors() {
-  // Load telegram link
+  // Load config (telegram link + media data)
   const cfgRes = await apiCall({ action: 'load_config' });
-  if (cfgRes.config && cfgRes.config.telegramLink) {
-    telegramLink = cfgRes.config.telegramLink;
-    const inp = document.getElementById('telegram-link-input');
-    if (inp) inp.value = telegramLink;
-    const prev = document.getElementById('telegram-link-preview');
-    if (prev) prev.textContent = telegramLink ? '✅ Link saved: ' + telegramLink : '';
+  if (cfgRes.config) {
+    if (cfgRes.config.telegramLink) {
+      telegramLink = cfgRes.config.telegramLink;
+      const inp = document.getElementById('telegram-link-input');
+      if (inp) inp.value = telegramLink;
+      const prev = document.getElementById('telegram-link-preview');
+      if (prev) prev.textContent = '✅ Link saved: ' + telegramLink;
+    }
+    if (cfgRes.config.mediaData) {
+      mediaData = cfgRes.config.mediaData;
+    }
   }
 
   // Load events
@@ -1312,6 +1346,7 @@ async function renderAdminSponsors() {
   sponsorEvents = evRes.events || [];
   renderAdminEventsList();
   renderSponsorMembersList();
+  renderMediaTrackerTable();
 }
 
 function renderSponsorMembersList() {
@@ -1459,6 +1494,245 @@ function renderAdminEventsList() {
       </div>
     </div>`;
   }).join('');
+}
+
+
+// ════════════════════════════════════════════════════════
+// MEDIA TRACKER — ADMIN
+// ════════════════════════════════════════════════════════
+
+function setMediaPeriod(p) {
+  mediaPeriod = p;
+  document.getElementById('media-period-week').style.background  = p==='week'  ? '#e05c2a' : '#1a1a1a';
+  document.getElementById('media-period-week').style.color       = p==='week'  ? '#fff'    : '#aaa';
+  document.getElementById('media-period-month').style.background = p==='month' ? '#e05c2a' : '#1a1a1a';
+  document.getElementById('media-period-month').style.color      = p==='month' ? '#fff'    : '#aaa';
+  renderMediaTrackerTable();
+}
+
+async function loadMediaData() {
+  const res = await apiCall({ action: 'load_config' });
+  if (res.config && res.config.mediaData) {
+    mediaData = res.config.mediaData;
+  } else {
+    mediaData = {};
+  }
+}
+
+async function saveMediaData() {
+  const cfgRes = await apiCall({ action: 'load_config' });
+  const cfg = cfgRes.config || {};
+  cfg.mediaData = mediaData;
+  await apiCall({ action: 'save_config', admin_password: adminPw, config: cfg });
+}
+
+function getMediaKey() {
+  const now = new Date();
+  if (mediaPeriod === 'week') {
+    // ISO week key: YYYY-Www
+    const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2,'0')}`;
+  } else {
+    return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  }
+}
+
+function getMediaEntry(memberId) {
+  const key = getMediaKey();
+  if (!mediaData[memberId]) mediaData[memberId] = {};
+  if (!mediaData[memberId][key]) mediaData[memberId][key] = { posts: 0, refs: 0 };
+  return mediaData[memberId][key];
+}
+
+function renderMediaTrackerTable() {
+  const container = document.getElementById('media-tracker-table');
+  if (!container) return;
+  const sponsors = customers.filter(c => c.is_sponsor);
+
+  if (!sponsors.length) {
+    container.innerHTML = '<div style="color:#555;font-size:13px;text-align:center;padding:16px;">No sponsors yet. Grant sponsor role to members first.</div>';
+    return;
+  }
+
+  const periodLabel = mediaPeriod === 'week' ? 'This Week' : 'This Month';
+  const key = getMediaKey();
+
+  // Sort by total posts desc
+  const sorted = [...sponsors].sort((a,b) => {
+    const ae = getMediaEntry(a.id);
+    const be = getMediaEntry(b.id);
+    return (be.posts + be.refs) - (ae.posts + ae.refs);
+  });
+
+  container.innerHTML = `
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="border-bottom:1px solid #333;">
+            <th style="text-align:left;padding:8px 10px;color:#888;font-weight:600;">Sponsor</th>
+            <th style="text-align:center;padding:8px 10px;color:#888;font-weight:600;">📸 Posts</th>
+            <th style="text-align:center;padding:8px 10px;color:#888;font-weight:600;">🔗 Referrals</th>
+            <th style="text-align:center;padding:8px 10px;color:#888;font-weight:600;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sorted.map((s, i) => {
+            const entry = getMediaEntry(s.id);
+            const total = entry.posts + entry.refs;
+            const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
+            return `<tr style="border-bottom:1px solid #1a1a1a;">
+              <td style="padding:10px;">
+                <div style="font-weight:700;color:#e05c2a;">${medal} ${s.full_name}</div>
+                <div style="font-size:11px;color:#555;">@${s.username}</div>
+              </td>
+              <td style="text-align:center;padding:10px;">
+                <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
+                  <button onclick="adjustMedia('${s.id}','posts',-1)" style="background:#1a1a1a;border:1px solid #333;color:#aaa;border-radius:4px;width:24px;height:24px;cursor:pointer;font-size:14px;line-height:1;">−</button>
+                  <span id="media-posts-${s.id}" style="font-size:16px;font-weight:700;color:#fff;min-width:28px;text-align:center;">${entry.posts}</span>
+                  <button onclick="adjustMedia('${s.id}','posts',1)" style="background:#e05c2a;border:none;color:#fff;border-radius:4px;width:24px;height:24px;cursor:pointer;font-size:14px;line-height:1;">+</button>
+                </div>
+              </td>
+              <td style="text-align:center;padding:10px;">
+                <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
+                  <button onclick="adjustMedia('${s.id}','refs',-1)" style="background:#1a1a1a;border:1px solid #333;color:#aaa;border-radius:4px;width:24px;height:24px;cursor:pointer;font-size:14px;line-height:1;">−</button>
+                  <span id="media-refs-${s.id}" style="font-size:16px;font-weight:700;color:#fff;min-width:28px;text-align:center;">${entry.refs}</span>
+                  <button onclick="adjustMedia('${s.id}','refs',1)" style="background:#e05c2a;border:none;color:#fff;border-radius:4px;width:24px;height:24px;cursor:pointer;font-size:14px;line-height:1;">+</button>
+                </div>
+              </td>
+              <td style="text-align:center;padding:10px;">
+                <span id="media-total-${s.id}" style="font-size:16px;font-weight:700;color:${total>0?'#e05c2a':'#555'};">${total}</span>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div style="font-size:11px;color:#444;margin-top:12px;text-align:right;">Period: ${periodLabel} · Key: ${key}</div>`;
+}
+
+let mediaDebounce = null;
+async function adjustMedia(id, field, delta) {
+  const entry = getMediaEntry(id);
+  entry[field] = Math.max(0, (entry[field] || 0) + delta);
+
+  // Update displayed numbers instantly
+  const postsEl = document.getElementById(`media-posts-${id}`);
+  const refsEl  = document.getElementById(`media-refs-${id}`);
+  const totalEl = document.getElementById(`media-total-${id}`);
+  if (postsEl) postsEl.textContent = entry.posts;
+  if (refsEl)  refsEl.textContent  = entry.refs;
+  if (totalEl) {
+    const t = entry.posts + entry.refs;
+    totalEl.textContent = t;
+    totalEl.style.color = t > 0 ? '#e05c2a' : '#555';
+  }
+
+  // Debounce the save so rapid clicks don't spam the API
+  clearTimeout(mediaDebounce);
+  mediaDebounce = setTimeout(async () => {
+    await saveMediaData();
+  }, 800);
+}
+
+// ════════════════════════════════════════════════════════
+// MEDIA STATS — MEMBER SPONSOR HUB
+// ════════════════════════════════════════════════════════
+
+async function renderMemberMediaStats() {
+  if (!currentUser) return;
+
+  // Load media data (public load — just config)
+  const cfgRes = await apiCall({ action: 'load_config' });
+  if (cfgRes.config && cfgRes.config.mediaData) {
+    mediaData = cfgRes.config.mediaData;
+  }
+
+  const myCard = document.getElementById('my-media-stats-card');
+  const lbCard = document.getElementById('sponsor-leaderboard-card');
+  if (!myCard || !lbCard) return;
+  myCard.style.display = 'block';
+  lbCard.style.display = 'block';
+
+  // My stats — show both week and month
+  const myStats = document.getElementById('my-media-stats');
+  const weekKey  = getWeekKey();
+  const monthKey = getMonthKey();
+  const myWeek  = (mediaData[currentUser.id] && mediaData[currentUser.id][weekKey])  || { posts:0, refs:0 };
+  const myMonth = (mediaData[currentUser.id] && mediaData[currentUser.id][monthKey]) || { posts:0, refs:0 };
+
+  myStats.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px;">
+      <div style="background:#111;border-radius:10px;padding:14px;text-align:center;border:1px solid #222;">
+        <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">This Week</div>
+        <div style="display:flex;justify-content:space-around;">
+          <div><div style="font-size:22px;font-weight:900;color:#e05c2a;">${myWeek.posts}</div><div style="font-size:11px;color:#666;">Posts</div></div>
+          <div><div style="font-size:22px;font-weight:900;color:#e05c2a;">${myWeek.refs}</div><div style="font-size:11px;color:#666;">Referrals</div></div>
+        </div>
+      </div>
+      <div style="background:#111;border-radius:10px;padding:14px;text-align:center;border:1px solid #222;">
+        <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">This Month</div>
+        <div style="display:flex;justify-content:space-around;">
+          <div><div style="font-size:22px;font-weight:900;color:#e05c2a;">${myMonth.posts}</div><div style="font-size:11px;color:#666;">Posts</div></div>
+          <div><div style="font-size:22px;font-weight:900;color:#e05c2a;">${myMonth.refs}</div><div style="font-size:11px;color:#666;">Referrals</div></div>
+        </div>
+      </div>
+    </div>`;
+
+  // Leaderboard — all sponsors ranked by this month posts+refs
+  const lb = document.getElementById('sponsor-leaderboard');
+  // We need all sponsors but we only have currentUser — use mediaData keys + load all members for names
+  // Since we have mediaData but not all member names client side, build from what we know
+  // Collect all member IDs that have media entries
+  const allIds = Object.keys(mediaData);
+  if (!allIds.length) {
+    lb.innerHTML = '<div style="color:#555;font-size:13px;text-align:center;padding:16px;">No activity tracked yet.</div>';
+    return;
+  }
+
+  // Build leaderboard from mediaData — we know currentUser's name; others show as "Sponsor"
+  const entries = allIds.map(id => {
+    const mEntry = (mediaData[id] && mediaData[id][monthKey]) || { posts:0, refs:0 };
+    const total = mEntry.posts + mEntry.refs;
+    const name = id === currentUser.id ? currentUser.full_name : 'Sponsor';
+    return { id, name, posts: mEntry.posts, refs: mEntry.refs, total };
+  }).filter(e => e.total > 0).sort((a,b) => b.total - a.total);
+
+  if (!entries.length) {
+    lb.innerHTML = '<div style="color:#555;font-size:13px;text-align:center;padding:16px;">No activity this month yet.</div>';
+    return;
+  }
+
+  const medals = ['🥇','🥈','🥉'];
+  lb.innerHTML = entries.map((e, i) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:${e.id===currentUser.id?'#1a0f00':'#111'};border-radius:8px;margin-bottom:6px;border:1px solid ${e.id===currentUser.id?'#e05c2a':'#1a1a1a'};">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:20px;">${medals[i] || (i+1)}</span>
+        <div>
+          <div style="font-weight:700;color:${e.id===currentUser.id?'#e05c2a':'#fff'};">${e.name}${e.id===currentUser.id?' (You)':''}</div>
+          <div style="font-size:11px;color:#555;">📸 ${e.posts} posts · 🔗 ${e.refs} referrals</div>
+        </div>
+      </div>
+      <div style="font-size:20px;font-weight:900;color:#e05c2a;">${e.total}</div>
+    </div>`).join('');
+}
+
+function getWeekKey() {
+  const now = new Date();
+  const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2,'0')}`;
+}
+
+function getMonthKey() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
 }
 
 </script>
