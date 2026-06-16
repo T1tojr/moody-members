@@ -238,12 +238,14 @@
       <button class="nav-tab active" onclick="showView('dashboard')">Dashboard</button>
       <button class="nav-tab" onclick="showView('customers')">Customers</button>
       <button class="nav-tab" onclick="showView('log-service')">Log Service</button>
+      <button class="nav-tab" onclick="showView('sponsors')">⭐ Sponsors</button>
       <button class="nav-tab" onclick="showView('settings')">Settings</button>
     </div>
     <div class="nav-tabs" id="portal-tabs" style="display:none;">
       <button class="nav-tab active" onclick="showPortalView('my-profile')">My Profile</button>
       <button class="nav-tab" onclick="showPortalView('my-history')">Service History</button>
       <button class="nav-tab" onclick="showPortalView('my-redeem')">Redeem Points</button>
+      <button class="nav-tab" id="tab-sponsor" onclick="showPortalView('my-sponsor')" style="display:none;">⭐ Sponsor</button>
     </div>
     <div class="nav-user" id="nav-user-info">
       <span>Logged in as <strong id="nav-username"></strong></span>
@@ -358,6 +360,66 @@
   </div>
 
   <!-- ══════════════════════════════════════
+       ADMIN: SPONSORS
+  ══════════════════════════════════════ -->
+  <div id="view-sponsors" class="view">
+    <div class="section-title">⭐ Sponsor Management</div>
+
+    <!-- Telegram link config -->
+    <div class="card">
+      <div class="card-title">Sponsor Telegram Group</div>
+      <div style="font-size:13px;color:#888;margin-bottom:12px;">Paste your Telegram invite link here. Only sponsors will see this button.</div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <input type="text" id="telegram-link-input" placeholder="https://t.me/+XXXXXXXX" style="flex:1;background:#1a1a1a;border:1px solid #333;color:#fff;padding:10px 14px;border-radius:8px;font-size:14px;">
+        <button class="btn btn-primary btn-sm" onclick="saveTelegramLink()">Save</button>
+      </div>
+      <div id="telegram-link-preview" style="margin-top:10px;font-size:12px;color:#555;"></div>
+    </div>
+
+    <!-- Add Event -->
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div class="card-title" style="margin:0;">Events & Meetings</div>
+        <button class="btn btn-primary btn-sm" onclick="openEventModal()">+ Add Event</button>
+      </div>
+      <div id="admin-events-list"></div>
+    </div>
+
+    <!-- Sponsor Members List -->
+    <div class="card">
+      <div class="card-title">All Members — Toggle Sponsor Role</div>
+      <div style="font-size:13px;color:#888;margin-bottom:16px;">Toggle the ⭐ button to grant or revoke sponsor access. Sponsors get their own tab with the Telegram link and event calendar.</div>
+      <div id="sponsor-members-list"></div>
+    </div>
+  </div>
+
+  <!-- Event Modal -->
+  <div id="event-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:#1a1a1a;border-radius:12px;padding:28px;width:90%;max-width:440px;border:1px solid #333;">
+      <div style="font-size:18px;font-weight:700;color:#fff;margin-bottom:20px;" id="event-modal-title">Add Event</div>
+      <div class="form-group"><label>Event Title</label><input type="text" id="ev-title" placeholder="e.g. Shop Meet, Dyno Day…" style="background:#111;border:1px solid #333;color:#fff;padding:10px;border-radius:8px;width:100%;box-sizing:border-box;"></div>
+      <div class="form-group"><label>Type</label>
+        <select id="ev-type" style="background:#111;border:1px solid #333;color:#fff;padding:10px;border-radius:8px;width:100%;box-sizing:border-box;">
+          <option>📅 Meeting</option>
+          <option>🏎️ Car Meet</option>
+          <option>🔧 Shop Event</option>
+          <option>🏁 Track Day</option>
+          <option>🎉 Sponsor Event</option>
+          <option>📣 Announcement</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Date</label><input type="date" id="ev-date" style="background:#111;border:1px solid #333;color:#fff;padding:10px;border-radius:8px;width:100%;box-sizing:border-box;"></div>
+      <div class="form-group"><label>Time (optional)</label><input type="time" id="ev-time" style="background:#111;border:1px solid #333;color:#fff;padding:10px;border-radius:8px;width:100%;box-sizing:border-box;"></div>
+      <div class="form-group"><label>Location (optional)</label><input type="text" id="ev-location" placeholder="Address or venue name" style="background:#111;border:1px solid #333;color:#fff;padding:10px;border-radius:8px;width:100%;box-sizing:border-box;"></div>
+      <div class="form-group"><label>Notes (optional)</label><textarea id="ev-notes" rows="2" placeholder="Any extra details…" style="background:#111;border:1px solid #333;color:#fff;padding:10px;border-radius:8px;width:100%;box-sizing:border-box;resize:none;"></textarea></div>
+      <div style="display:flex;gap:10px;margin-top:8px;">
+        <button class="btn btn-primary" style="flex:1;" onclick="saveEvent()">Save Event</button>
+        <button class="btn btn-secondary" style="flex:1;" onclick="closeEventModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
        CUSTOMER PORTAL: MY PROFILE
   ══════════════════════════════════════ -->
   <div id="view-my-profile" class="view">
@@ -416,6 +478,39 @@
     </div>
   </div>
 
+
+  <!-- ══════════════════════════════════════
+       CUSTOMER PORTAL: SPONSOR HUB
+  ══════════════════════════════════════ -->
+  <div id="view-my-sponsor" class="view">
+    <div class="section-title">⭐ Sponsor Hub</div>
+
+    <!-- Sponsor badge -->
+    <div class="card" style="text-align:center;padding:32px 20px;background:linear-gradient(135deg,#1a0f00,#2d1500);border:1px solid #e05c2a;">
+      <div style="font-size:48px;margin-bottom:12px;">⭐</div>
+      <div style="font-size:22px;font-weight:900;color:#e05c2a;letter-spacing:2px;">MOODY SPONSOR</div>
+      <div style="font-size:13px;color:#aaa;margin-top:8px;">You're part of the inner circle. Thank you for your support.</div>
+    </div>
+
+    <!-- Telegram Group CTA -->
+    <div class="card" style="text-align:center;">
+      <div class="card-title">🚀 Sponsor Group Chat</div>
+      <div style="font-size:13px;color:#888;margin-bottom:20px;">Connect with all Moody Sponsors — exclusive updates, early access, and direct line to the team.</div>
+      <button class="btn btn-primary" style="font-size:16px;padding:14px 32px;width:100%;" onclick="openSponsorTelegram()">
+        📲 Join Sponsor Telegram
+      </button>
+      <div style="font-size:11px;color:#555;margin-top:10px;">Sponsor-only access · Verified by admin</div>
+    </div>
+
+    <!-- Upcoming Events / Meetings Calendar -->
+    <div class="card">
+      <div class="card-title">📅 Upcoming Events & Meetings</div>
+      <div id="sponsor-events-list" style="margin-top:8px;">
+        <div style="color:#555;font-size:13px;text-align:center;padding:20px;">Loading events…</div>
+      </div>
+    </div>
+  </div>
+
 </div><!-- end screen-portal -->
 
 <script>
@@ -465,6 +560,9 @@ async function saveConfigToDB() {
 let currentUser = null; // logged-in member object
 let customers = [];     // admin: all members
 let adminPw = '';       // set at login, used for all admin API calls
+let sponsorEvents = []; // cached events list
+let editingEventId = null; // for event modal edit mode
+let telegramLink = '';  // sponsor telegram invite link
 
 // ── TIER HELPERS ──
 function getTierKey(pts) {
@@ -571,13 +669,13 @@ async function doAdminLogin() {
 function showPortal() {
   document.getElementById('screen-login').style.display='none';
   document.getElementById('screen-portal').style.display='block';
-  // Show member nav, hide admin nav
   document.getElementById('admin-tabs').style.display='none';
   document.getElementById('portal-tabs').style.display='flex';
-  // Hide all admin views
   document.querySelectorAll('.view').forEach(v => v.style.display='none');
-  // Show member profile view
   document.getElementById('view-my-profile').style.display='block';
+  // Show/hide sponsor tab based on role
+  const sponsorTab = document.getElementById('tab-sponsor');
+  if (sponsorTab) sponsorTab.style.display = currentUser && currentUser.is_sponsor ? 'inline-block' : 'none';
   renderPortalProfile();
 }
 
@@ -615,6 +713,7 @@ function showPortalView(tab) {
   if(tab==='my-profile' || tab==='profile') renderPortalProfile();
   if(tab==='my-redeem' || tab==='redeem') renderPortalRedeem();
   if(tab==='my-history' || tab==='history') renderPortalHistory();
+  if(tab==='my-sponsor') renderSponsorHub();
 }
 
 function renderPortalProfile() {
@@ -854,6 +953,7 @@ function showView(tab) {
   if(tab==='dashboard') renderAdminOverview();
   if(tab==='settings') renderAdminSettings();
   if(tab==='log-service') renderLogService();
+  if(tab==='sponsors') renderAdminSponsors();
 }
 
 function renderAdmin() {
@@ -1095,6 +1195,272 @@ function adminLogout() {
   document.getElementById('screen-login').style.display='flex';
   document.getElementById('admin-password').value='';
 }
+
+// ════════════════════════════════════════════════════════
+// SPONSOR — MEMBER SIDE
+// ════════════════════════════════════════════════════════
+
+async function renderSponsorHub() {
+  // Reload events from backend
+  const res = await apiCall({ action: 'load_events' });
+  sponsorEvents = res.events || [];
+
+  // Load telegram link from config
+  const cfgRes = await apiCall({ action: 'load_config' });
+  if (cfgRes.config && cfgRes.config.telegramLink) {
+    telegramLink = cfgRes.config.telegramLink;
+  }
+
+  renderSponsorEvents();
+}
+
+function renderSponsorEvents() {
+  const container = document.getElementById('sponsor-events-list');
+  if (!container) return;
+
+  if (!sponsorEvents.length) {
+    container.innerHTML = '<div style="color:#555;font-size:13px;text-align:center;padding:24px;">No upcoming events yet. Check back soon!</div>';
+    return;
+  }
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const upcoming = sponsorEvents
+    .filter(e => new Date(e.date) >= today)
+    .sort((a,b) => new Date(a.date) - new Date(b.date));
+  const past = sponsorEvents
+    .filter(e => new Date(e.date) < today)
+    .sort((a,b) => new Date(b.date) - new Date(a.date));
+
+  const renderEvent = (e, isPast) => {
+    const d = new Date(e.date + 'T00:00:00');
+    const dateStr = d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' });
+    const timeStr = e.time ? ` · ${formatTime12(e.time)}` : '';
+    return `
+    <div style="display:flex;gap:14px;padding:14px;background:${isPast?'#0f0f0f':'#111'};border-radius:10px;margin-bottom:10px;border-left:3px solid ${isPast?'#333':'#e05c2a'};">
+      <div style="text-align:center;min-width:48px;">
+        <div style="font-size:22px;">${getEventEmoji(e.type)}</div>
+      </div>
+      <div style="flex:1;">
+        <div style="font-weight:700;color:${isPast?'#666':'#fff'};font-size:15px;">${e.title}</div>
+        <div style="font-size:12px;color:#e05c2a;margin-top:2px;">${dateStr}${timeStr}</div>
+        ${e.location ? `<div style="font-size:12px;color:#888;margin-top:2px;">📍 ${e.location}</div>` : ''}
+        ${e.notes ? `<div style="font-size:12px;color:#666;margin-top:4px;">${e.notes}</div>` : ''}
+        <div style="font-size:11px;color:#444;margin-top:4px;">${e.type}</div>
+      </div>
+    </div>`;
+  };
+
+  let html = '';
+  if (upcoming.length) {
+    html += '<div style="font-size:11px;font-weight:700;color:#e05c2a;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">Upcoming</div>';
+    html += upcoming.map(e => renderEvent(e, false)).join('');
+  }
+  if (past.length) {
+    html += '<div style="font-size:11px;font-weight:700;color:#444;letter-spacing:1px;text-transform:uppercase;margin:16px 0 10px;">Past</div>';
+    html += past.map(e => renderEvent(e, true)).join('');
+  }
+  if (!upcoming.length && !past.length) {
+    html = '<div style="color:#555;font-size:13px;text-align:center;padding:24px;">No events scheduled.</div>';
+  }
+  container.innerHTML = html;
+}
+
+function openSponsorTelegram() {
+  if (!telegramLink) {
+    toast('⚠️ Telegram link not set yet. Check back soon!');
+    return;
+  }
+  window.open(telegramLink, '_blank');
+}
+
+function formatTime12(t) {
+  if (!t) return '';
+  const [h, m] = t.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2,'0')} ${ampm}`;
+}
+
+function getEventEmoji(type) {
+  if (!type) return '📅';
+  if (type.includes('Meeting')) return '📅';
+  if (type.includes('Car Meet')) return '🏎️';
+  if (type.includes('Shop')) return '🔧';
+  if (type.includes('Track')) return '🏁';
+  if (type.includes('Sponsor')) return '🎉';
+  if (type.includes('Announcement')) return '📣';
+  return '📅';
+}
+
+// ════════════════════════════════════════════════════════
+// SPONSOR — ADMIN SIDE
+// ════════════════════════════════════════════════════════
+
+async function renderAdminSponsors() {
+  // Load telegram link
+  const cfgRes = await apiCall({ action: 'load_config' });
+  if (cfgRes.config && cfgRes.config.telegramLink) {
+    telegramLink = cfgRes.config.telegramLink;
+    const inp = document.getElementById('telegram-link-input');
+    if (inp) inp.value = telegramLink;
+    const prev = document.getElementById('telegram-link-preview');
+    if (prev) prev.textContent = telegramLink ? '✅ Link saved: ' + telegramLink : '';
+  }
+
+  // Load events
+  const evRes = await apiCall({ action: 'load_events' });
+  sponsorEvents = evRes.events || [];
+  renderAdminEventsList();
+  renderSponsorMembersList();
+}
+
+function renderSponsorMembersList() {
+  const container = document.getElementById('sponsor-members-list');
+  if (!container) return;
+  if (!customers.length) {
+    container.innerHTML = '<div style="color:#555;font-size:13px;text-align:center;padding:16px;">No members yet.</div>';
+    return;
+  }
+  const sorted = [...customers].sort((a,b) => a.full_name.localeCompare(b.full_name));
+  container.innerHTML = sorted.map(c => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:#111;border-radius:8px;margin-bottom:8px;border:1px solid ${c.is_sponsor?'#e05c2a':'#222'};">
+      <div>
+        <div style="font-weight:700;color:${c.is_sponsor?'#e05c2a':'#fff'};">${c.full_name} ${c.is_sponsor?'⭐':''}</div>
+        <div style="font-size:12px;color:#666;">@${c.username} · ${c.tier} · ${c.points} pts</div>
+      </div>
+      <button onclick="toggleSponsor('${c.id}')" class="btn btn-sm" style="background:${c.is_sponsor?'#2a1500':'#1a1a1a'};color:${c.is_sponsor?'#e05c2a':'#aaa'};border:1px solid ${c.is_sponsor?'#e05c2a':'#333'};">
+        ${c.is_sponsor ? '⭐ Remove Sponsor' : '☆ Make Sponsor'}
+      </button>
+    </div>`).join('');
+}
+
+async function toggleSponsor(id) {
+  const res = await apiCall({ action: 'toggle_sponsor', admin_password: adminPw, id });
+  if (res.error) { toast('❌ ' + res.error); return; }
+  const idx = customers.findIndex(c => c.id === id);
+  if (idx >= 0) customers[idx] = res.member;
+  const name = res.member.full_name;
+  const granted = res.member.is_sponsor;
+  toast(granted ? `⭐ ${name} is now a Sponsor!` : `✅ Sponsor role removed from ${name}`);
+  renderSponsorMembersList();
+}
+
+async function saveTelegramLink() {
+  const link = document.getElementById('telegram-link-input').value.trim();
+  if (!link) { toast('⚠️ Enter a Telegram invite link'); return; }
+
+  // Merge into existing config
+  const cfgRes = await apiCall({ action: 'load_config' });
+  const existingConfig = cfgRes.config || {};
+  existingConfig.telegramLink = link;
+
+  const res = await apiCall({ action: 'save_config', admin_password: adminPw, config: existingConfig });
+  if (res.error) { toast('❌ ' + res.error); return; }
+
+  telegramLink = link;
+  const prev = document.getElementById('telegram-link-preview');
+  if (prev) prev.textContent = '✅ Link saved: ' + link;
+  toast('✅ Telegram link saved!');
+}
+
+// ── Event CRUD ────────────────────────────────────────────────────────────────
+
+function openEventModal(id) {
+  editingEventId = id || null;
+  const modal = document.getElementById('event-modal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  document.getElementById('event-modal-title').textContent = id ? 'Edit Event' : 'Add Event';
+  document.getElementById('ev-date').value = new Date().toISOString().split('T')[0];
+
+  if (id) {
+    const ev = sponsorEvents.find(e => e.id === id);
+    if (ev) {
+      document.getElementById('ev-title').value = ev.title || '';
+      document.getElementById('ev-type').value = ev.type || '📅 Meeting';
+      document.getElementById('ev-date').value = ev.date || '';
+      document.getElementById('ev-time').value = ev.time || '';
+      document.getElementById('ev-location').value = ev.location || '';
+      document.getElementById('ev-notes').value = ev.notes || '';
+    }
+  } else {
+    document.getElementById('ev-title').value = '';
+    document.getElementById('ev-time').value = '';
+    document.getElementById('ev-location').value = '';
+    document.getElementById('ev-notes').value = '';
+  }
+}
+
+function closeEventModal() {
+  document.getElementById('event-modal').style.display = 'none';
+  editingEventId = null;
+}
+
+async function saveEvent() {
+  const title = document.getElementById('ev-title').value.trim();
+  const type = document.getElementById('ev-type').value;
+  const date = document.getElementById('ev-date').value;
+  const time = document.getElementById('ev-time').value;
+  const location = document.getElementById('ev-location').value.trim();
+  const notes = document.getElementById('ev-notes').value.trim();
+
+  if (!title) { toast('⚠️ Event title is required'); return; }
+  if (!date)  { toast('⚠️ Date is required'); return; }
+
+  if (editingEventId) {
+    const idx = sponsorEvents.findIndex(e => e.id === editingEventId);
+    if (idx >= 0) sponsorEvents[idx] = { ...sponsorEvents[idx], title, type, date, time, location, notes };
+  } else {
+    sponsorEvents.push({
+      id: 'ev_' + Date.now(),
+      title, type, date, time, location, notes,
+    });
+  }
+
+  const res = await apiCall({ action: 'save_events', admin_password: adminPw, events: sponsorEvents });
+  if (res.error) { toast('❌ ' + res.error); return; }
+
+  toast(editingEventId ? '✅ Event updated!' : '✅ Event added!');
+  closeEventModal();
+  renderAdminEventsList();
+}
+
+async function deleteEvent(id) {
+  if (!confirm('Delete this event?')) return;
+  sponsorEvents = sponsorEvents.filter(e => e.id !== id);
+  const res = await apiCall({ action: 'save_events', admin_password: adminPw, events: sponsorEvents });
+  if (res.error) { toast('❌ ' + res.error); return; }
+  toast('🗑️ Event deleted');
+  renderAdminEventsList();
+}
+
+function renderAdminEventsList() {
+  const container = document.getElementById('admin-events-list');
+  if (!container) return;
+  if (!sponsorEvents.length) {
+    container.innerHTML = '<div style="color:#555;font-size:13px;text-align:center;padding:16px;">No events yet. Add your first one!</div>';
+    return;
+  }
+  const sorted = [...sponsorEvents].sort((a,b) => new Date(a.date) - new Date(b.date));
+  container.innerHTML = sorted.map(e => {
+    const d = new Date(e.date + 'T00:00:00');
+    const dateStr = d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+    const timeStr = e.time ? ' · ' + formatTime12(e.time) : '';
+    return `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:#111;border-radius:8px;margin-bottom:8px;border-left:3px solid #e05c2a;">
+      <div>
+        <div style="font-weight:700;color:#fff;">${getEventEmoji(e.type)} ${e.title}</div>
+        <div style="font-size:12px;color:#e05c2a;">${dateStr}${timeStr}</div>
+        ${e.location ? `<div style="font-size:12px;color:#666;">📍 ${e.location}</div>` : ''}
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-sm" style="background:#1a1a1a;color:#aaa;" onclick="openEventModal('${e.id}')">Edit</button>
+        <button class="btn btn-sm" style="background:#2a1a1a;color:#e05c2a;" onclick="deleteEvent('${e.id}')">Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 </script>
 
   <!-- ══════════════════════════════════════
