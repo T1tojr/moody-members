@@ -393,6 +393,7 @@
           <span style="font-size:12px;color:#888;">Period:</span>
           <button id="media-period-week" class="btn btn-sm" onclick="setMediaPeriod('week')" style="background:#e05c2a;color:#fff;">This Week</button>
           <button id="media-period-month" class="btn btn-sm" onclick="setMediaPeriod('month')" style="background:#1a1a1a;color:#aaa;">This Month</button>
+          <button id="media-period-alltime" class="btn btn-sm" onclick="setMediaPeriod('alltime')" style="background:#1a1a1a;color:#aaa;">All Time</button>
         </div>
       </div>
       <div style="font-size:13px;color:#888;margin-bottom:16px;">Track posts and referrals for each sponsor. Numbers reset automatically each period.</div>
@@ -1503,10 +1504,12 @@ function renderAdminEventsList() {
 
 function setMediaPeriod(p) {
   mediaPeriod = p;
-  document.getElementById('media-period-week').style.background  = p==='week'  ? '#e05c2a' : '#1a1a1a';
-  document.getElementById('media-period-week').style.color       = p==='week'  ? '#fff'    : '#aaa';
-  document.getElementById('media-period-month').style.background = p==='month' ? '#e05c2a' : '#1a1a1a';
-  document.getElementById('media-period-month').style.color      = p==='month' ? '#fff'    : '#aaa';
+  ['week','month','alltime'].forEach(id => {
+    const btn = document.getElementById('media-period-' + id);
+    if (!btn) return;
+    btn.style.background = p === id ? '#e05c2a' : '#1a1a1a';
+    btn.style.color      = p === id ? '#fff'    : '#aaa';
+  });
   renderMediaTrackerTable();
 }
 
@@ -1527,9 +1530,9 @@ async function saveMediaData() {
 }
 
 function getMediaKey() {
+  if (mediaPeriod === 'alltime') return 'alltime';
   const now = new Date();
   if (mediaPeriod === 'week') {
-    // ISO week key: YYYY-Www
     const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
     const dayNum = d.getUTCDay() || 7;
     d.setUTCDate(d.getUTCDate() + 4 - dayNum);
@@ -1558,8 +1561,9 @@ function renderMediaTrackerTable() {
     return;
   }
 
-  const periodLabel = mediaPeriod === 'week' ? 'This Week' : 'This Month';
+  const periodLabel = mediaPeriod === 'week' ? 'This Week' : mediaPeriod === 'month' ? 'This Month' : 'All Time';
   const key = getMediaKey();
+  const isAllTime = mediaPeriod === 'alltime';
 
   // Sort by total posts desc
   const sorted = [...sponsors].sort((a,b) => {
@@ -1590,18 +1594,20 @@ function renderMediaTrackerTable() {
                 <div style="font-size:11px;color:#555;">@${s.username}</div>
               </td>
               <td style="text-align:center;padding:10px;">
+                ${isAllTime ? `<span style="font-size:16px;font-weight:700;color:#fff;">${entry.posts}</span>` : `
                 <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
                   <button onclick="adjustMedia('${s.id}','posts',-1)" style="background:#1a1a1a;border:1px solid #333;color:#aaa;border-radius:4px;width:24px;height:24px;cursor:pointer;font-size:14px;line-height:1;">−</button>
                   <span id="media-posts-${s.id}" style="font-size:16px;font-weight:700;color:#fff;min-width:28px;text-align:center;">${entry.posts}</span>
                   <button onclick="adjustMedia('${s.id}','posts',1)" style="background:#e05c2a;border:none;color:#fff;border-radius:4px;width:24px;height:24px;cursor:pointer;font-size:14px;line-height:1;">+</button>
-                </div>
+                </div>`}
               </td>
               <td style="text-align:center;padding:10px;">
+                ${isAllTime ? `<span style="font-size:16px;font-weight:700;color:#fff;">${entry.refs}</span>` : `
                 <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
                   <button onclick="adjustMedia('${s.id}','refs',-1)" style="background:#1a1a1a;border:1px solid #333;color:#aaa;border-radius:4px;width:24px;height:24px;cursor:pointer;font-size:14px;line-height:1;">−</button>
                   <span id="media-refs-${s.id}" style="font-size:16px;font-weight:700;color:#fff;min-width:28px;text-align:center;">${entry.refs}</span>
                   <button onclick="adjustMedia('${s.id}','refs',1)" style="background:#e05c2a;border:none;color:#fff;border-radius:4px;width:24px;height:24px;cursor:pointer;font-size:14px;line-height:1;">+</button>
-                </div>
+                </div>`}
               </td>
               <td style="text-align:center;padding:10px;">
                 <span id="media-total-${s.id}" style="font-size:16px;font-weight:700;color:${total>0?'#e05c2a':'#555'};">${total}</span>
@@ -1659,25 +1665,33 @@ async function renderMemberMediaStats() {
 
   // My stats — show both week and month
   const myStats = document.getElementById('my-media-stats');
-  const weekKey  = getWeekKey();
-  const monthKey = getMonthKey();
-  const myWeek  = (mediaData[currentUser.id] && mediaData[currentUser.id][weekKey])  || { posts:0, refs:0 };
-  const myMonth = (mediaData[currentUser.id] && mediaData[currentUser.id][monthKey]) || { posts:0, refs:0 };
+  const weekKey    = getWeekKey();
+  const monthKey   = getMonthKey();
+  const myWeek     = (mediaData[currentUser.id] && mediaData[currentUser.id][weekKey])    || { posts:0, refs:0 };
+  const myMonth    = (mediaData[currentUser.id] && mediaData[currentUser.id][monthKey])   || { posts:0, refs:0 };
+  const myAllTime  = (mediaData[currentUser.id] && mediaData[currentUser.id]['alltime'])  || { posts:0, refs:0 };
 
   myStats.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px;">
-      <div style="background:#111;border-radius:10px;padding:14px;text-align:center;border:1px solid #222;">
-        <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">This Week</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:6px;">
+      <div style="background:#111;border-radius:10px;padding:12px;text-align:center;border:1px solid #222;">
+        <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">This Week</div>
         <div style="display:flex;justify-content:space-around;">
-          <div><div style="font-size:22px;font-weight:900;color:#e05c2a;">${myWeek.posts}</div><div style="font-size:11px;color:#666;">Posts</div></div>
-          <div><div style="font-size:22px;font-weight:900;color:#e05c2a;">${myWeek.refs}</div><div style="font-size:11px;color:#666;">Referrals</div></div>
+          <div><div style="font-size:20px;font-weight:900;color:#e05c2a;">${myWeek.posts}</div><div style="font-size:10px;color:#666;">Posts</div></div>
+          <div><div style="font-size:20px;font-weight:900;color:#e05c2a;">${myWeek.refs}</div><div style="font-size:10px;color:#666;">Refs</div></div>
         </div>
       </div>
-      <div style="background:#111;border-radius:10px;padding:14px;text-align:center;border:1px solid #222;">
-        <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">This Month</div>
+      <div style="background:#111;border-radius:10px;padding:12px;text-align:center;border:1px solid #222;">
+        <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">This Month</div>
         <div style="display:flex;justify-content:space-around;">
-          <div><div style="font-size:22px;font-weight:900;color:#e05c2a;">${myMonth.posts}</div><div style="font-size:11px;color:#666;">Posts</div></div>
-          <div><div style="font-size:22px;font-weight:900;color:#e05c2a;">${myMonth.refs}</div><div style="font-size:11px;color:#666;">Referrals</div></div>
+          <div><div style="font-size:20px;font-weight:900;color:#e05c2a;">${myMonth.posts}</div><div style="font-size:10px;color:#666;">Posts</div></div>
+          <div><div style="font-size:20px;font-weight:900;color:#e05c2a;">${myMonth.refs}</div><div style="font-size:10px;color:#666;">Refs</div></div>
+        </div>
+      </div>
+      <div style="background:#111;border-radius:10px;padding:12px;text-align:center;border:1px solid #e05c2a22;">
+        <div style="font-size:10px;color:#e05c2a;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">All Time</div>
+        <div style="display:flex;justify-content:space-around;">
+          <div><div style="font-size:20px;font-weight:900;color:#e05c2a;">${myAllTime.posts}</div><div style="font-size:10px;color:#666;">Posts</div></div>
+          <div><div style="font-size:20px;font-weight:900;color:#e05c2a;">${myAllTime.refs}</div><div style="font-size:10px;color:#666;">Refs</div></div>
         </div>
       </div>
     </div>`;
