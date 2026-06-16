@@ -1530,7 +1530,7 @@ async function saveMediaData() {
 }
 
 function getMediaKey() {
-  if (mediaPeriod === 'alltime') return 'alltime';
+  // 'alltime' is computed — not a stored key
   const now = new Date();
   if (mediaPeriod === 'week') {
     const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
@@ -1544,7 +1544,20 @@ function getMediaKey() {
   }
 }
 
+// Sums ALL period keys for a member (excludes the old static 'alltime' bucket)
+function getAllTimeEntry(memberId) {
+  const memberBuckets = mediaData[memberId] || {};
+  let posts = 0, refs = 0;
+  Object.entries(memberBuckets).forEach(([k, v]) => {
+    if (k === 'alltime') return; // skip legacy static key
+    posts += (v.posts || 0);
+    refs  += (v.refs  || 0);
+  });
+  return { posts, refs };
+}
+
 function getMediaEntry(memberId) {
+  if (mediaPeriod === 'alltime') return getAllTimeEntry(memberId);
   const key = getMediaKey();
   if (!mediaData[memberId]) mediaData[memberId] = {};
   if (!mediaData[memberId][key]) mediaData[memberId][key] = { posts: 0, refs: 0 };
@@ -1669,7 +1682,7 @@ async function renderMemberMediaStats() {
   const monthKey   = getMonthKey();
   const myWeek     = (mediaData[currentUser.id] && mediaData[currentUser.id][weekKey])    || { posts:0, refs:0 };
   const myMonth    = (mediaData[currentUser.id] && mediaData[currentUser.id][monthKey])   || { posts:0, refs:0 };
-  const myAllTime  = (mediaData[currentUser.id] && mediaData[currentUser.id]['alltime'])  || { posts:0, refs:0 };
+  const myAllTime  = getAllTimeEntry(currentUser.id);
 
   myStats.innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:6px;">
@@ -1709,7 +1722,7 @@ async function renderMemberMediaStats() {
 
   // Build leaderboard from mediaData — we know currentUser's name; others show as "Sponsor"
   const entries = allIds.map(id => {
-    const mEntry = (mediaData[id] && mediaData[id][monthKey]) || { posts:0, refs:0 };
+    const mEntry = getAllTimeEntry(id);
     const total = mEntry.posts + mEntry.refs;
     const name = id === currentUser.id ? currentUser.full_name : 'Sponsor';
     return { id, name, posts: mEntry.posts, refs: mEntry.refs, total };
