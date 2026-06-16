@@ -976,6 +976,44 @@ function renderAdminCustomers() {
     </div>`;
 }
 
+async function logService() {
+  const id = document.getElementById('svc-customer').value;
+  const type = document.getElementById('svc-type').value;
+  const amount = document.getElementById('svc-amount').value;
+  const notes = document.getElementById('svc-notes').value.trim();
+  const date = document.getElementById('svc-date').value;
+
+  if (!id)     { toast('⚠️ Select a customer first'); return; }
+  if (!amount || parseFloat(amount) <= 0) { toast('⚠️ Enter a valid amount'); return; }
+
+  const btn = document.querySelector('[onclick="logService()"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+
+  const res = await apiCall({
+    action: 'log_service',
+    admin_password: adminPw,
+    id,
+    service: { type, amount: parseFloat(amount), notes, date }
+  });
+
+  if (btn) { btn.disabled = false; btn.textContent = 'Log Service & Award Points'; }
+
+  if (res.error) { toast('❌ ' + res.error); return; }
+
+  // Update local customers array so the UI reflects the change immediately
+  const idx = customers.findIndex(c => c.id === id);
+  if (idx >= 0) customers[idx] = res.member;
+
+  const earned = Math.floor(parseFloat(amount) * (config.spendPts || 2));
+  toast(`✅ Service logged! +${earned} pts awarded to ${res.member.full_name}`);
+
+  // Reset form
+  document.getElementById('svc-customer').value = '';
+  document.getElementById('svc-amount').value = '';
+  document.getElementById('svc-notes').value = '';
+  document.getElementById('svc-preview').innerHTML = 'Select a customer and amount to preview points.';
+}
+
 async function openLogService(id) {
   const type = prompt('Service type (e.g. Oil Change, Tune, Wrap):');
   if(!type) return;
