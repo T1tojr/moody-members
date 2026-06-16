@@ -458,12 +458,13 @@ async function loadConfigFromDB() {
 }
 
 async function saveConfigToDB() {
-  return apiCall({ action: 'save_config', admin_password: 'Malik0509', config });
+  return apiCall({ action: 'save_config', admin_password: adminPw, config });
 }
 
 // ── STATE ──
 let currentUser = null; // logged-in member object
 let customers = [];     // admin: all members
+let adminPw = '';       // set at login, used for all admin API calls
 
 // ── TIER HELPERS ──
 function getTierKey(pts) {
@@ -552,12 +553,14 @@ async function doRegister() {
 
 async function doAdminLogin() {
   const pw = document.getElementById('admin-password').value.trim();
+  if (!pw) { toast('Enter admin password'); return; }
   const btn = document.getElementById('btn-admin-login');
   setLoading(btn, true);
   const res = await apiCall({ action:'list', admin_password: pw });
   setLoading(btn, false);
   if(res.error) { toast('❌ '+res.error); return; }
-  customers = res.members;
+  customers = res.members.filter(m => !['__rewards__','__config__'].includes(m.username));
+  adminPw = pw;
   document.getElementById('screen-login').style.display='none';
   document.getElementById('screen-portal').style.display='block';
   loadRewardsFromDB();
@@ -679,7 +682,7 @@ let editingRewardId = null;   // null = adding new, set = editing existing
 
 // ── Persist rewards to the DB as a special "settings" member record ──
 async function saveRewardsToDB() {
-  const res = await apiCall({ action:'save_rewards', admin_password:'Malik0509', rewards });
+  const res = await apiCall({ action:'save_rewards', admin_password:adminPw, rewards });
   if(res && res.ok) return true;
   // fall back silently — rewards still work from memory this session
   return false;
@@ -850,7 +853,7 @@ function showView(tab) {
   if(tab==='customers') renderAdminCustomers();
   if(tab==='dashboard') renderAdminOverview();
   if(tab==='settings') renderAdminSettings();
-  if(tab==='log-service') renderLogService && renderLogService();
+  if(tab==='log-service') renderLogService();
 }
 
 function renderAdmin() {
@@ -861,6 +864,41 @@ function renderAdmin() {
   document.querySelectorAll('.view').forEach(v => v.style.display='none');
   document.getElementById('view-dashboard').style.display='block';
   renderAdminOverview();
+}
+
+function renderLogService() {
+  const sel = document.getElementById('svc-customer');
+  if (!sel) return;
+  // Sort customers alphabetically
+  const sorted = [...customers].filter(c => c.username !== '__rewards__' && c.username !== '__config__')
+                               .sort((a,b) => a.full_name.localeCompare(b.full_name));
+  sel.innerHTML = '<option value="">-- Select Customer --</option>' +
+    sorted.map(c => `<option value="${c.id}">${c.full_name} · ${c.tier} · ${c.points} pts</option>`).join('');
+
+  // Set today's date as default
+  const dateEl = document.getElementById('svc-date');
+  if (dateEl && !dateEl.value) dateEl.value = new Date().toISOString().split('T')[0];
+
+  // Live points preview when customer or amount changes
+  sel.onchange = updateSvcPreview;
+  const amtEl = document.getElementById('svc-amount');
+  if (amtEl) amtEl.oninput = updateSvcPreview;
+}
+
+function updateSvcPreview() {
+  const sel = document.getElementById('svc-customer');
+  const amt = parseFloat(document.getElementById('svc-amount').value) || 0;
+  const preview = document.getElementById('svc-preview');
+  if (!preview) return;
+  if (!sel.value || amt <= 0) {
+    preview.innerHTML = 'Select a customer and amount to preview points.';
+    return;
+  }
+  const cust = customers.find(c => c.id === sel.value);
+  const earned = Math.floor(amt * (config.spendPts || 2));
+  const newTotal = (cust ? cust.points : 0) + earned;
+  preview.innerHTML = `<span style="color:#e05c2a;font-weight:700;">+${earned} pts</span> earned &nbsp;·&nbsp; New total: <strong>${newTotal} pts</strong>` +
+    (cust ? ` &nbsp;·&nbsp; Current tier: <span class="tier-badge tier-${getTierKey(cust.points)}" style="padding:2px 8px;font-size:12px;">${cust.tier}</span>` : '');
 }
 
 function renderAdminOverview() {
@@ -945,7 +983,7 @@ async function openLogService(id) {
   if(!amount) return;
   const notes = prompt('Notes (optional):') || '';
 
-  const res = await apiCall({ action:'log_service', admin_password:'Malik0509', id, service:{ type, amount, notes } });
+  const res = await apiCall({ action:'log_service', admin_password:adminPw, id, service:{ type, amount, notes } });
   if(res.error) { toast('❌ '+res.error); return; }
 
   // Update local customers array
@@ -961,7 +999,7 @@ async function adjustPoints(id) {
   const member = customers.find(c=>c.id===id);
   if(!member) return;
   const newPoints = Math.max(0, (member.points||0)+delta);
-  const res = await apiCall({ action:'update', id, points:newPoints, admin_password:'Malik0509' });
+  const res = await apiCall({ action:'update', id, points:newPoints, admin_password:adminPw });
   if(res.error) { toast('❌ '+res.error); return; }
   const idx = customers.findIndex(c=>c.id===id);
   if(idx>=0) customers[idx] = res.member;
@@ -971,7 +1009,7 @@ async function adjustPoints(id) {
 
 async function deleteMember(id) {
   if(!confirm('Delete this member? This cannot be undone.')) return;
-  const res = await apiCall({ action:'delete', admin_password:'Malik0509', id });
+  const res = await apiCall({ action:'delete', admin_password:adminPw, id });
   if(res.error) { toast('❌ '+res.error); return; }
   customers = customers.filter(c=>c.id!==id);
   toast('🗑 Member deleted');
