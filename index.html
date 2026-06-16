@@ -1012,6 +1012,9 @@ async function logService() {
   document.getElementById('svc-amount').value = '';
   document.getElementById('svc-notes').value = '';
   document.getElementById('svc-preview').innerHTML = 'Select a customer and amount to preview points.';
+
+  // Re-populate dropdown with updated points
+  renderLogService();
 }
 
 async function openLogService(id) {
